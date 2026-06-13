@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Marketing Concepts Quiz">
+  <rect width="48" height="48" rx="8" fill="#fffaf2"/>
+  <path fill="#18605b" d="M10 32h6v6h-6zM21 24h6v14h-6zM32 14h6v24h-6z"/>
+  <path fill="none" stroke="#e05d3f" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M11 21c6 1 10-7 15-5 3 1 5 4 11-4"/>
+  <circle cx="37" cy="12" r="4" fill="#eeb43e"/>
+</svg>

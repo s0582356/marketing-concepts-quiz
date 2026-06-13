@@ -1,0 +1,86 @@
+[
+  {
+    "id": 1,
+    "category": "Marketing-Grundlagen",
+    "difficulty": "easy",
+    "question": "Was beschreibt eine Zielgruppe im Marketing am besten?",
+    "options": [
+      "Eine klar definierte Gruppe von Personen, die mit einem Angebot erreicht werden soll",
+      "Alle Menschen, die ein Produkt theoretisch kaufen könnten",
+      "Eine Liste interner Projektaufgaben",
+      "Der technische Herstellungsprozess eines Produkts"
+    ],
+    "correctAnswer": "Eine klar definierte Gruppe von Personen, die mit einem Angebot erreicht werden soll",
+    "explanation": "Eine Zielgruppe bündelt Personen mit relevanten gemeinsamen Merkmalen, Bedürfnissen oder Verhaltensweisen. Dadurch lassen sich Botschaften, Kanäle und Angebote gezielter planen."
+  },
+  {
+    "id": 2,
+    "category": "Positionierung",
+    "difficulty": "easy",
+    "question": "Was ist der Kern einer klaren Positionierung?",
+    "options": [
+      "Ein Angebot im Kopf der Zielgruppe eindeutig von Alternativen abzugrenzen",
+      "Möglichst viele Produktdetails gleichzeitig zu kommunizieren",
+      "Den niedrigsten Preis im Markt festzulegen",
+      "Jede Kampagne auf denselben Kanal zu beschränken"
+    ],
+    "correctAnswer": "Ein Angebot im Kopf der Zielgruppe eindeutig von Alternativen abzugrenzen",
+    "explanation": "Positionierung beschreibt, wofür ein Angebot stehen soll und warum es für eine Zielgruppe relevant und unterscheidbar ist."
+  },
+  {
+    "id": 3,
+    "category": "Marketing-Mix",
+    "difficulty": "medium",
+    "question": "Wofür stehen die klassischen 4 Ps im Marketing-Mix?",
+    "options": [
+      "Product, Price, Place und Promotion",
+      "People, Process, Platform und Profit",
+      "Plan, Pitch, Purchase und Payment",
+      "Profile, Persona, Portfolio und Pipeline"
+    ],
+    "correctAnswer": "Product, Price, Place und Promotion",
+    "explanation": "Die 4 Ps strukturieren zentrale Entscheidungen zu Angebot, Preis, Vertrieb und Kommunikation."
+  },
+  {
+    "id": 4,
+    "category": "Markenführung",
+    "difficulty": "medium",
+    "question": "Was beschreibt Brand Awareness?",
+    "options": [
+      "Wie gut eine Marke von Menschen erkannt oder erinnert wird",
+      "Wie viele Varianten ein Produkt im Sortiment hat",
+      "Wie hoch die Gewinnmarge eines einzelnen Produkts ist",
+      "Wie schnell ein Team eine Kampagne veröffentlicht"
+    ],
+    "correctAnswer": "Wie gut eine Marke von Menschen erkannt oder erinnert wird",
+    "explanation": "Brand Awareness misst die Bekanntheit einer Marke. Sie kann zum Beispiel durch Wiedererkennung, ungestützte Erinnerung oder gestützte Erinnerung sichtbar werden."
+  },
+  {
+    "id": 5,
+    "category": "Kampagnenmessung",
+    "difficulty": "medium",
+    "question": "Welche Kennzahl beschreibt die Conversion Rate am besten?",
+    "options": [
+      "Den Anteil der Personen, die nach einem Kontakt eine gewünschte Aktion ausführen",
+      "Die absolute Anzahl aller Impressionen",
+      "Die durchschnittliche Produktionszeit eines Werbemittels",
+      "Die Anzahl der Farben in einem Corporate Design"
+    ],
+    "correctAnswer": "Den Anteil der Personen, die nach einem Kontakt eine gewünschte Aktion ausführen",
+    "explanation": "Die Conversion Rate setzt gewünschte Aktionen, etwa Käufe oder Anmeldungen, ins Verhältnis zu den Personen oder Besuchen, die diese Aktion auslösen konnten."
+  },
+  {
+    "id": 6,
+    "category": "Customer Journey",
+    "difficulty": "easy",
+    "question": "Was beschreibt ein Touchpoint in der Customer Journey?",
+    "options": [
+      "Einen Kontaktpunkt zwischen einer Person und einer Marke oder einem Angebot",
+      "Den letzten Schritt einer Buchhaltung",
+      "Eine interne Stellenbeschreibung",
+      "Eine rechtliche Unternehmensform"
+    ],
+    "correctAnswer": "Einen Kontaktpunkt zwischen einer Person und einer Marke oder einem Angebot",
+    "explanation": "Touchpoints sind Berührungspunkte wie Anzeigen, Website-Besuche, Beratungsgespräche, Verpackung oder Support. Sie prägen die Wahrnehmung entlang der Customer Journey."
+  }
+]
