@@ -5,6 +5,47 @@ import ScoreBox from './components/ScoreBox.vue'
 import PrivateQuestionImporter from './components/PrivateQuestionImporter.vue'
 import sampleQuestions from './data/public/sampleQuestions.json'
 
+const THEME_STORAGE_KEY = 'marketingQuizTheme'
+
+function getInitialTheme() {
+  if (typeof window === 'undefined') {
+    return 'light'
+  }
+
+  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
+
+  if (storedTheme === 'light' || storedTheme === 'dark') {
+    return storedTheme
+  }
+
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark'
+  }
+
+  return 'light'
+}
+
+function applyTheme(themeValue) {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  document.documentElement.setAttribute('data-theme', themeValue)
+}
+
+const theme = ref(getInitialTheme())
+applyTheme(theme.value)
+
+const isDarkMode = computed(() => theme.value === 'dark')
+const themeToggleIcon = computed(() => (isDarkMode.value ? '☀️' : '🌙'))
+const themeToggleLabel = computed(() => (isDarkMode.value ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'))
+
+function toggleTheme() {
+  theme.value = isDarkMode.value ? 'light' : 'dark'
+  applyTheme(theme.value)
+  window.localStorage.setItem(THEME_STORAGE_KEY, theme.value)
+}
+
 const questions = ref(sampleQuestions)
 const questionBankName = ref('Öffentliche Beispiel-Fragen')
 const isQuizStarted = ref(false)
@@ -253,6 +294,16 @@ function loadPrivateQuestions({ questions: importedQuestions, fileName }) {
 <template>
   <main class="app-shell">
     <section class="hero-section">
+      <button
+        type="button"
+        class="theme-toggle"
+        :aria-label="themeToggleLabel"
+        :aria-pressed="isDarkMode"
+        @click="toggleTheme"
+      >
+        <span aria-hidden="true">{{ themeToggleIcon }}</span>
+      </button>
+
       <p class="eyebrow">Marketing Concepts Quiz</p>
       <h1>Trainiere zentrale Marketing-Konzepte</h1>
       <p class="intro">
