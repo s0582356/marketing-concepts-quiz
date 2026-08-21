@@ -1,4 +1,5 @@
 <script setup>
+import { computed, ref, watch } from 'vue'
 import AnswerOption from './AnswerOption.vue'
 
 const props = defineProps({
@@ -37,6 +38,36 @@ function getAnswerClass(option) {
 
   return 'answer-muted'
 }
+
+const isMemoryHintOpen = ref(false)
+
+const memoryHint = computed(() => props.question?.soMerkstDuDirDas || null)
+
+const memoryHintSections = computed(() => {
+  if (!memoryHint.value) {
+    return []
+  }
+
+  return [
+    { key: 'situation', title: 'Situation', text: memoryHint.value.situation },
+    { key: 'action', title: 'Handlung', text: memoryHint.value.action },
+    { key: 'whyItFits', title: 'Warum passt das Konzept?', text: memoryHint.value.whyItFits },
+    { key: 'memoryHook', title: 'Memory Hook', text: memoryHint.value.memoryHook },
+  ].filter((section) => typeof section.text === 'string' && section.text.trim() !== '')
+})
+
+const hasMemoryHint = computed(() => memoryHintSections.value.length > 0)
+
+function toggleMemoryHint() {
+  isMemoryHintOpen.value = !isMemoryHintOpen.value
+}
+
+watch(
+  () => props.question,
+  () => {
+    isMemoryHintOpen.value = false
+  },
+)
 </script>
 
 <template>
@@ -71,6 +102,35 @@ function getAnswerClass(option) {
       <p class="explanation">
         {{ question.explanation }}
       </p>
+
+      <div v-if="hasMemoryHint" class="memory-hint">
+        <button
+          id="memory-hint-toggle"
+          class="memory-hint-toggle"
+          type="button"
+          :aria-expanded="isMemoryHintOpen"
+          aria-controls="memory-hint-content"
+          @click="toggleMemoryHint"
+        >
+          <span>💡 So merkst du dir das</span>
+          <span class="memory-hint-icon" aria-hidden="true">{{ isMemoryHintOpen ? '−' : '+' }}</span>
+        </button>
+
+        <div
+          v-if="isMemoryHintOpen"
+          id="memory-hint-content"
+          class="memory-hint-content"
+        >
+          <div
+            v-for="section in memoryHintSections"
+            :key="section.key"
+            class="memory-hint-section"
+          >
+            <h4>{{ section.title }}</h4>
+            <p :class="{ 'memory-hook': section.key === 'memoryHook' }">{{ section.text }}</p>
+          </div>
+        </div>
+      </div>
 
       <button
         v-if="!isLastQuestion"

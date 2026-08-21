@@ -48,6 +48,7 @@ const validateQuestions = (data) => {
     options: question.options,
     correctAnswer: question.correctAnswer,
     explanation: question.explanation,
+    soMerkstDuDirDas: question.soMerkstDuDirDas ?? null,
   }))
 }
 
