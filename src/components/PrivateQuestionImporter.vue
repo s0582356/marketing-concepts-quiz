@@ -1,5 +1,10 @@
 <script setup>
+import { ref } from 'vue'
+import { fingerprintFile } from '../utils/fingerprint.js'
+
 const emit = defineEmits(['questions-loaded'])
+const fileInput = ref(null)
+let requestedFingerprint = null
 
 const validateQuestions = (data) => {
   if (!Array.isArray(data)) {
@@ -60,13 +65,15 @@ const handleFileChange = async (event) => {
   }
 
   try {
-    const fileContent = await file.text()
+    const [fileContent, fingerprint] = await Promise.all([file.text(), fingerprintFile(file)])
     const parsedData = JSON.parse(fileContent)
     const validatedQuestions = validateQuestions(parsedData)
 
     emit('questions-loaded', {
       questions: validatedQuestions,
       fileName: file.name,
+      fingerprint,
+      requestedFingerprint,
     })
 
     event.target.value = ''
@@ -74,7 +81,16 @@ const handleFileChange = async (event) => {
     alert(`Import fehlgeschlagen: ${error.message}`)
     event.target.value = ''
   }
+
+  requestedFingerprint = null
 }
+
+function openFilePicker(fingerprint = null) {
+  requestedFingerprint = fingerprint
+  fileInput.value?.click()
+}
+
+defineExpose({ openFilePicker })
 </script>
 
 <template>
@@ -87,13 +103,9 @@ const handleFileChange = async (event) => {
       </p>
     </div>
 
-    <label class="import-button">
+    <button class="import-button" type="button" @click="openFilePicker()">
       JSON auswählen
-      <input
-        type="file"
-        accept=".json,application/json"
-        @change="handleFileChange"
-      />
-    </label>
+    </button>
+    <input ref="fileInput" class="visually-hidden" type="file" accept=".json,application/json" @change="handleFileChange" />
   </section>
 </template>

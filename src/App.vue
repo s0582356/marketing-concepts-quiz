@@ -4,38 +4,29 @@ import QuizCard from './components/QuizCard.vue'
 import ScoreBox from './components/ScoreBox.vue'
 import PrivateQuestionImporter from './components/PrivateQuestionImporter.vue'
 import sampleQuestions from './data/public/sampleQuestions.json'
+import {
+  deleteBankProgress,
+  getBankProgress,
+  listBankProgress,
+  saveBankProgress,
+} from './utils/progressStorage.js'
 
 const THEME_STORAGE_KEY = 'marketingQuizTheme'
 
 function getInitialTheme() {
-  if (typeof window === 'undefined') {
-    return 'light'
-  }
-
+  if (typeof window === 'undefined') return 'light'
   const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
-
-  if (storedTheme === 'light' || storedTheme === 'dark') {
-    return storedTheme
-  }
-
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark'
-  }
-
+  if (storedTheme === 'light' || storedTheme === 'dark') return storedTheme
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark'
   return 'light'
 }
 
 function applyTheme(themeValue) {
-  if (typeof document === 'undefined') {
-    return
-  }
-
-  document.documentElement.setAttribute('data-theme', themeValue)
+  if (typeof document !== 'undefined') document.documentElement.setAttribute('data-theme', themeValue)
 }
 
 const theme = ref(getInitialTheme())
 applyTheme(theme.value)
-
 const isDarkMode = computed(() => theme.value === 'dark')
 const themeToggleIcon = computed(() => (isDarkMode.value ? '☀️' : '🌙'))
 const themeToggleLabel = computed(() => (isDarkMode.value ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'))
@@ -47,11 +38,19 @@ function toggleTheme() {
 }
 
 const questions = ref(sampleQuestions)
+const originalQuestions = ref(sampleQuestions)
 const questionBankName = ref('Öffentliche Beispiel-Fragen')
+const privateBankFileName = ref(null)
+const activeFingerprint = ref(null)
+const importer = ref(null)
+const savedProgressEntries = ref(listBankProgress())
+const resumeError = ref('')
+const runQuestionIndices = ref([])
+const optionOrders = ref([])
+const selectedOptionIndices = ref([])
 const isQuizStarted = ref(false)
 const isQuizComplete = ref(false)
 const isReviewMode = ref(false)
-const originalQuestions = ref(sampleQuestions)
 const currentQuestionIndex = ref(0)
 const selectedAnswer = ref(null)
 const isAnswered = ref(false)
@@ -63,127 +62,64 @@ const answeredQuestions = ref([])
 
 const totalQuestions = computed(() => questions.value.length)
 const wrongAnswerCount = computed(() => totalQuestions.value - score.value)
-const scorePercentage = computed(() => {
-  if (totalQuestions.value === 0) {
-    return 0
-  }
-
-  return Math.round((score.value / totalQuestions.value) * 100)
-})
-
-const currentQuestion = computed(() => {
-  return questions.value[currentQuestionIndex.value]
-})
-
-const isLastQuestion = computed(() => {
-  return currentQuestionIndex.value === totalQuestions.value - 1
-})
+const scorePercentage = computed(() => totalQuestions.value === 0 ? 0 : Math.round((score.value / totalQuestions.value) * 100))
+const currentQuestion = computed(() => questions.value[currentQuestionIndex.value])
+const isLastQuestion = computed(() => currentQuestionIndex.value === totalQuestions.value - 1)
 
 const resultMessage = computed(() => {
-  if (scorePercentage.value >= 90) {
-    return 'Marketing-Strategie sitzt'
-  }
-
-  if (scorePercentage.value >= 75) {
-    return 'Starke Grundlage - weiter vertiefen'
-  }
-
-  if (scorePercentage.value >= 60) {
-    return 'Solide Basis - wiederholen lohnt sich'
-  }
-
+  if (scorePercentage.value >= 90) return 'Marketing-Strategie sitzt'
+  if (scorePercentage.value >= 75) return 'Starke Grundlage - weiter vertiefen'
+  if (scorePercentage.value >= 60) return 'Solide Basis - wiederholen lohnt sich'
   return 'Noch unsicher - Fehlerfragen wiederholen'
 })
 
 const categoryResults = computed(() => {
   const categories = new Map()
-
   answeredQuestions.value.forEach((answer) => {
     const categoryName = answer.category || 'Allgemein'
-
-    if (!categories.has(categoryName)) {
-      categories.set(categoryName, {
-        name: categoryName,
-        correct: 0,
-        total: 0,
-      })
-    }
-
+    if (!categories.has(categoryName)) categories.set(categoryName, { name: categoryName, correct: 0, total: 0 })
     const category = categories.get(categoryName)
     category.total++
-
-    if (answer.isCorrect) {
-      category.correct++
-    }
+    if (answer.isCorrect) category.correct++
   })
-
-  return [...categories.values()]
-    .map((category) => {
-      const percentage = Math.round((category.correct / category.total) * 100)
-      let label = 'Wiederholen'
-      let statusClass = 'category-review'
-
-      if (percentage >= 80) {
-        label = 'Stark'
-        statusClass = 'category-strong'
-      } else if (percentage >= 60) {
-        label = 'Solide'
-        statusClass = 'category-solid'
-      }
-
-      return {
-        ...category,
-        percentage,
-        label,
-        statusClass,
-      }
-    })
-    .sort((a, b) => a.name.localeCompare(b.name))
+  return [...categories.values()].map((category) => {
+    const percentage = Math.round((category.correct / category.total) * 100)
+    let label = 'Wiederholen'
+    let statusClass = 'category-review'
+    if (percentage >= 80) { label = 'Stark'; statusClass = 'category-strong' }
+    else if (percentage >= 60) { label = 'Solide'; statusClass = 'category-solid' }
+    return { ...category, percentage, label, statusClass }
+  }).sort((a, b) => a.name.localeCompare(b.name))
 })
 
-const weakCategories = computed(() => {
-  return categoryResults.value
-    .filter((category) => category.percentage < 60)
-    .map((category) => category.name)
-})
-
-const learningRecommendation = computed(() => {
-  if (weakCategories.value.length > 0) {
-    return `Wiederhole besonders: ${weakCategories.value.join(', ')}`
-  }
-
-  return 'Keine klare Schwachstelle in diesem Durchlauf.'
-})
+const weakCategories = computed(() => categoryResults.value.filter((category) => category.percentage < 60).map((category) => category.name))
+const learningRecommendation = computed(() => weakCategories.value.length > 0
+  ? `Wiederhole besonders: ${weakCategories.value.join(', ')}`
+  : 'Keine klare Schwachstelle in diesem Durchlauf.')
 
 function getQuestionKey(question) {
-  return [
-    question.id,
-    question.category,
-    question.difficulty,
-    question.question,
-  ]
-    .filter(Boolean)
-    .join('::')
+  return [question.id, question.category, question.difficulty, question.question].filter(Boolean).join('::')
 }
 
-function shuffleOptions(options = []) {
-  const shuffledOptions = [...options]
-
-  for (let index = shuffledOptions.length - 1; index > 0; index--) {
+function shuffledIndices(length) {
+  const order = Array.from({ length }, (_, index) => index)
+  for (let index = order.length - 1; index > 0; index--) {
     const randomIndex = Math.floor(Math.random() * (index + 1))
-    const currentOption = shuffledOptions[index]
-    shuffledOptions[index] = shuffledOptions[randomIndex]
-    shuffledOptions[randomIndex] = currentOption
+    const value = order[index]
+    order[index] = order[randomIndex]
+    order[randomIndex] = value
   }
-
-  return shuffledOptions
+  return order
 }
 
-function shuffleOptionsForQuestions(questionList) {
-  return questionList.map((question) => ({
-    ...question,
-    options: shuffleOptions(question.options),
-  }))
+function buildRun(indices, orders = null) {
+  runQuestionIndices.value = indices.map((index) => index)
+  optionOrders.value = orders ?? indices.map((index) => shuffledIndices(originalQuestions.value[index].options.length))
+  questions.value = indices.map((originalIndex, runIndex) => {
+    const question = originalQuestions.value[originalIndex]
+    return { ...question, options: optionOrders.value[runIndex].map((optionIndex) => question.options[optionIndex]) }
+  })
+  selectedOptionIndices.value = Array(indices.length).fill(null)
 }
 
 function resetQuizProgress({ clearIncorrectAnswers = true } = {}) {
@@ -195,83 +131,97 @@ function resetQuizProgress({ clearIncorrectAnswers = true } = {}) {
   bestStreak.value = 0
   answeredQuestions.value = []
   isQuizComplete.value = false
+  if (clearIncorrectAnswers) incorrectlyAnsweredQuestions.value = []
+}
 
-  if (clearIncorrectAnswers) {
-    incorrectlyAnsweredQuestions.value = []
-  }
+function refreshSavedProgress() {
+  savedProgressEntries.value = listBankProgress()
+}
+
+function savePrivateProgress() {
+  if (!activeFingerprint.value || !privateBankFileName.value || runQuestionIndices.value.length === 0) return
+  saveBankProgress(activeFingerprint.value, {
+    bankFileName: privateBankFileName.value,
+    questionCount: originalQuestions.value.length,
+    runQuestionIndices: runQuestionIndices.value,
+    optionOrders: optionOrders.value,
+    currentIndex: currentQuestionIndex.value,
+    selectedOptionIndices: selectedOptionIndices.value,
+    score: score.value,
+    currentStreak: currentStreak.value,
+    bestStreak: bestStreak.value,
+    isQuizComplete: isQuizComplete.value,
+    isReviewMode: isReviewMode.value,
+    lastSavedAt: new Date().toISOString(),
+  })
+  refreshSavedProgress()
 }
 
 function startQuiz() {
-  questions.value = shuffleOptionsForQuestions(originalQuestions.value)
+  buildRun(originalQuestions.value.map((_, index) => index))
   isReviewMode.value = false
   resetQuizProgress()
   isQuizStarted.value = true
+  savePrivateProgress()
 }
 
 function selectAnswer(option) {
-  if (isAnswered.value) {
-    return
-  }
-
+  if (isAnswered.value) return
   selectedAnswer.value = option
   isAnswered.value = true
-
-  const isCorrect = option === currentQuestion.value.correctAnswer
-
+  const displayedIndex = currentQuestion.value.options.indexOf(option)
+  const originalOptionIndex = optionOrders.value[currentQuestionIndex.value][displayedIndex]
+  selectedOptionIndices.value[currentQuestionIndex.value] = originalOptionIndex
+  const originalQuestion = originalQuestions.value[runQuestionIndices.value[currentQuestionIndex.value]]
+  const isCorrect = originalQuestion.options[originalOptionIndex] === originalQuestion.correctAnswer
   answeredQuestions.value.push({
-    key: getQuestionKey(currentQuestion.value),
-    category: currentQuestion.value.category || 'Allgemein',
+    key: getQuestionKey(originalQuestion),
+    category: originalQuestion.category || 'Allgemein',
     isCorrect,
   })
-
   if (isCorrect) {
     score.value++
     currentStreak.value++
     bestStreak.value = Math.max(bestStreak.value, currentStreak.value)
-    return
+  } else {
+    currentStreak.value = 0
+    if (!incorrectlyAnsweredQuestions.value.some((question) => getQuestionKey(question) === getQuestionKey(originalQuestion))) {
+      incorrectlyAnsweredQuestions.value.push(originalQuestion)
+    }
   }
-
-  currentStreak.value = 0
-
-  const alreadyTracked = incorrectlyAnsweredQuestions.value.some((question) => {
-    return getQuestionKey(question) === getQuestionKey(currentQuestion.value)
-  })
-
-  if (!alreadyTracked) {
-    incorrectlyAnsweredQuestions.value.push(currentQuestion.value)
-  }
+  savePrivateProgress()
 }
 
 function nextQuestion() {
-  if (isLastQuestion.value) {
-    return
-  }
-
+  if (isLastQuestion.value) return
   currentQuestionIndex.value++
   selectedAnswer.value = null
   isAnswered.value = false
+  savePrivateProgress()
 }
 
 function finishQuiz() {
   isQuizComplete.value = true
+  savePrivateProgress()
 }
 
 function restartWithCurrentQuestionBank() {
-  questions.value = shuffleOptionsForQuestions(originalQuestions.value)
+  buildRun(originalQuestions.value.map((_, index) => index))
   isReviewMode.value = false
   resetQuizProgress()
   isQuizStarted.value = true
+  savePrivateProgress()
 }
 
 function repeatIncorrectQuestions() {
-  if (incorrectlyAnsweredQuestions.value.length === 0) {
-    return
-  }
-
-  questions.value = shuffleOptionsForQuestions(incorrectlyAnsweredQuestions.value)
+  if (incorrectlyAnsweredQuestions.value.length === 0) return
+  const incorrectKeys = new Set(incorrectlyAnsweredQuestions.value.map(getQuestionKey))
+  const indices = originalQuestions.value.map((question, index) => incorrectKeys.has(getQuestionKey(question)) ? index : -1).filter((index) => index >= 0)
+  buildRun(indices)
   isReviewMode.value = true
   resetQuizProgress()
   isQuizStarted.value = true
+  savePrivateProgress()
 }
 
 function showQuestionBankSelection() {
@@ -279,15 +229,93 @@ function showQuestionBankSelection() {
   isReviewMode.value = false
   isQuizStarted.value = false
   resetQuizProgress()
+  refreshSavedProgress()
 }
 
-function loadPrivateQuestions({ questions: importedQuestions, fileName }) {
+function validRestoredRun(progress, importedQuestions) {
+  return progress.questionCount === importedQuestions.length
+    && progress.runQuestionIndices.every((index) => importedQuestions[index])
+    && progress.optionOrders.every((order, runIndex) => {
+      const optionCount = importedQuestions[progress.runQuestionIndices[runIndex]].options.length
+      return order.length === optionCount && order.every((index) => index < optionCount)
+    })
+    && progress.selectedOptionIndices.every((index, runIndex) => index === null || index < importedQuestions[progress.runQuestionIndices[runIndex]].options.length)
+}
+
+function restorePrivateProgress(importedQuestions, fileName, fingerprint, progress) {
+  if (!validRestoredRun(progress, importedQuestions)) {
+    resumeError.value = 'Der gespeicherte Lernstand ist mit dieser Datei nicht kompatibel.'
+    return
+  }
   originalQuestions.value = importedQuestions
-  questions.value = shuffleOptionsForQuestions(importedQuestions)
+  privateBankFileName.value = fileName
+  activeFingerprint.value = fingerprint
+  questionBankName.value = `Eigene Fragebank: ${fileName}`
+  buildRun(progress.runQuestionIndices, progress.optionOrders)
+  selectedOptionIndices.value = progress.selectedOptionIndices.map((index) => index)
+  currentQuestionIndex.value = progress.currentIndex
+  score.value = progress.score
+  currentStreak.value = progress.currentStreak
+  bestStreak.value = progress.bestStreak
+  isQuizComplete.value = progress.isQuizComplete
+  isReviewMode.value = progress.isReviewMode
+  answeredQuestions.value = []
+  incorrectlyAnsweredQuestions.value = []
+  progress.selectedOptionIndices.forEach((optionIndex, runIndex) => {
+    if (optionIndex === null) return
+    const originalQuestion = importedQuestions[progress.runQuestionIndices[runIndex]]
+    const isCorrect = originalQuestion.options[optionIndex] === originalQuestion.correctAnswer
+    answeredQuestions.value.push({ key: getQuestionKey(originalQuestion), category: originalQuestion.category || 'Allgemein', isCorrect })
+    if (!isCorrect && !incorrectlyAnsweredQuestions.value.some((question) => getQuestionKey(question) === getQuestionKey(originalQuestion))) {
+      incorrectlyAnsweredQuestions.value.push(originalQuestion)
+    }
+  })
+  const currentSelection = progress.selectedOptionIndices[progress.currentIndex]
+  selectedAnswer.value = currentSelection === null ? null : importedQuestions[progress.runQuestionIndices[progress.currentIndex]].options[currentSelection]
+  isAnswered.value = currentSelection !== null
+  isQuizStarted.value = true
+  resumeError.value = ''
+}
+
+function loadPrivateQuestions({ questions: importedQuestions, fileName, fingerprint, requestedFingerprint }) {
+  if (requestedFingerprint) {
+    if (fingerprint !== requestedFingerprint) {
+      resumeError.value = 'Diese Datei gehört nicht zu diesem gespeicherten Lernstand.'
+      return
+    }
+    const progress = getBankProgress(requestedFingerprint)
+    if (!progress) {
+      resumeError.value = 'Dieser gespeicherte Lernstand ist nicht mehr verfügbar.'
+      refreshSavedProgress()
+      return
+    }
+    restorePrivateProgress(importedQuestions, fileName, fingerprint, progress)
+    return
+  }
+  originalQuestions.value = importedQuestions
+  questions.value = importedQuestions
+  privateBankFileName.value = fileName
+  activeFingerprint.value = fingerprint
   questionBankName.value = `Eigene Fragebank: ${fileName}`
   isReviewMode.value = false
   isQuizStarted.value = false
+  resumeError.value = ''
   resetQuizProgress()
+}
+
+function requestResume(fingerprint) {
+  resumeError.value = ''
+  importer.value?.openFilePicker(fingerprint)
+}
+
+function removeSavedProgress(fingerprint) {
+  deleteBankProgress(fingerprint)
+  refreshSavedProgress()
+  resumeError.value = ''
+}
+
+function formatSavedAt(value) {
+  return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 </script>
 
@@ -315,7 +343,29 @@ function loadPrivateQuestions({ questions: importedQuestions, fileName }) {
     </section>
 
     <section v-if="!isQuizStarted" class="start-layout" aria-label="Quiz vorbereiten">
-      <PrivateQuestionImporter @questions-loaded="loadPrivateQuestions" />
+      <PrivateQuestionImporter ref="importer" @questions-loaded="loadPrivateQuestions" />
+
+      <section v-if="savedProgressEntries.length > 0" class="saved-progress-card" aria-label="Gespeicherte Lernstände">
+        <h2>Gespeicherte Lernstände</h2>
+        <p class="saved-progress-note">Zum Fortsetzen wählst du die private JSON-Datei erneut aus.</p>
+        <p v-if="resumeError" class="resume-error" role="alert">{{ resumeError }}</p>
+        <div class="saved-progress-list">
+          <article v-for="entry in savedProgressEntries" :key="entry.fingerprint" class="saved-progress-entry">
+            <div>
+              <h3>{{ entry.progress.bankFileName }}</h3>
+              <p>
+                Position {{ entry.progress.currentIndex + 1 }} / {{ entry.progress.runQuestionIndices.length }}
+                · {{ entry.progress.isQuizComplete ? 'abgeschlossen' : 'laufend' }}
+              </p>
+              <time :datetime="entry.progress.lastSavedAt">Zuletzt gespeichert: {{ formatSavedAt(entry.progress.lastSavedAt) }}</time>
+            </div>
+            <div class="saved-progress-actions">
+              <button class="primary-button" type="button" @click="requestResume(entry.fingerprint)">Fortsetzen</button>
+              <button class="secondary-button" type="button" @click="removeSavedProgress(entry.fingerprint)">Löschen</button>
+            </div>
+          </article>
+        </div>
+      </section>
 
       <section class="start-card">
         <h2>Quiz bereit</h2>
