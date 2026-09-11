@@ -1,0 +1,217 @@
+[
+  {
+    "id": "demo-duel-1",
+    "method": "duel",
+    "modeSupport": ["learn", "apply", "exam"],
+    "compassPath": ["Marketingmix", "Kommunikationspolitik", "Instrumentewahl"],
+    "concept": "Above-the-line vs. Below-the-line",
+    "explanation": "Above-the-line-Kommunikation spricht ein breites, meist anonymes Publikum über Massenmedien an. Below-the-line-Kommunikation spricht gezielt einzelne Personen oder kleine Gruppen direkt an.",
+    "guidedExample": "Ein Sportartikelhersteller schaltet einen TV-Spot zur Fußball-EM: viele Zuschauer, kein direkter persönlicher Kontakt. Entscheidend ist die Reichweite über ein Massenmedium ohne individuelle Ansprache - das spricht für Above-the-line.",
+    "prompt": "Ein Unternehmen schickt ausgewählten Bestandskunden ein personalisiertes Angebot per E-Mail. Welches Konzept trifft zu?",
+    "choices": ["Above-the-line-Kommunikation", "Below-the-line-Kommunikation"],
+    "correctAnswer": "Below-the-line-Kommunikation",
+    "decisiveClue": "Entscheidend ist die individuelle, direkte Ansprache einzelner bekannter Empfänger statt eines anonymen Massenpublikums.",
+    "feedback": "In einer MC-Prüfung erkennst du Below-the-line meist an Formulierungen wie 'gezielt', 'persönlich' oder 'ausgewählte Empfänger'.",
+    "misconception": "Häufig wird 'digital' fälschlich mit 'above-the-line' gleichgesetzt - entscheidend ist aber nicht der Kanal, sondern ob die Ansprache individuell oder anonym-breit erfolgt.",
+    "distractorExplanation": "Above-the-line klingt plausibel, weil E-Mail wie ein Massenkanal wirkt - hier wird er aber gezielt für einzelne bekannte Personen eingesetzt."
+  },
+  {
+    "id": "demo-duel-2",
+    "method": "duel",
+    "modeSupport": ["learn", "apply", "exam"],
+    "compassPath": ["Marketingmix", "Preispolitik", "Preisstrategie"],
+    "concept": "Skimming- vs. Penetrationsstrategie",
+    "explanation": "Bei der Skimmingstrategie startet ein Produkt mit einem hohen Einführungspreis, der später gesenkt wird. Bei der Penetrationsstrategie startet ein Produkt mit einem niedrigen Einführungspreis, um schnell Marktanteile zu gewinnen.",
+    "guidedExample": "Ein Hersteller bringt ein neues Premium-Smartphone zu einem sehr hohen Preis auf den Markt und senkt ihn erst Monate später. Entscheidend ist der hohe Startpreis zur Abschöpfung zahlungsbereiter Käufer - das ist Skimming.",
+    "prompt": "Ein Streaminganbieter startet in einem neuen Land bewusst mit einem sehr niedrigen Abopreis, um möglichst viele Nutzer zu gewinnen. Welche Strategie liegt vor?",
+    "choices": ["Skimmingstrategie", "Penetrationsstrategie"],
+    "correctAnswer": "Penetrationsstrategie",
+    "decisiveClue": "Entscheidend ist der niedrige Einführungspreis mit dem Ziel, schnell Marktanteile bzw. eine breite Nutzerbasis aufzubauen.",
+    "feedback": "Achte in der Prüfung auf das Ziel hinter dem Preis: Abschöpfung zahlungsbereiter Kunden spricht für Skimming, schnelle Marktdurchdringung für Penetration.",
+    "misconception": "Ein niedriger Preis wird manchmal automatisch als 'unprofessionell' oder 'Notlösung' interpretiert statt als bewusste Markteintrittsstrategie.",
+    "distractorExplanation": "Skimming klingt plausibel, weil beide Strategien Einführungspreise betreffen - der Unterschied liegt aber in der Richtung (hoch vs. niedrig) und dem strategischen Ziel."
+  },
+  {
+    "id": "demo-misconception-1",
+    "method": "misconception",
+    "modeSupport": ["learn", "apply", "exam"],
+    "compassPath": ["Marketingmix", "Produktpolitik", "Markenpolitik"],
+    "concept": "Markenbekanntheit",
+    "explanation": "Markenbekanntheit beschreibt, ob und wie gut eine Marke erinnert oder erkannt wird - sie ist eine notwendige, aber keine hinreichende Bedingung für Kaufbereitschaft.",
+    "prompt": "\"Eine hohe Markenbekanntheit garantiert automatisch hohe Verkaufszahlen.\" Was ist an dieser Aussage fachlich problematisch?",
+    "choices": [
+      "Bekanntheit ist notwendig, aber nicht hinreichend für den Kauf - weitere Faktoren wie Image und Preis entscheiden mit",
+      "Markenbekanntheit hat grundsätzlich nichts mit Verkaufszahlen zu tun",
+      "Nur ungestützte Bekanntheit zählt für Verkaufszahlen, gestützte Bekanntheit nie",
+      "Verkaufszahlen hängen ausschließlich vom Preis ab, nie von der Marke"
+    ],
+    "correctAnswer": "Bekanntheit ist notwendig, aber nicht hinreichend für den Kauf - weitere Faktoren wie Image und Preis entscheiden mit",
+    "decisiveClue": "Das Wort \"automatisch\" verrät die Falle: Bekanntheit ist eine Voraussetzung, aber keine Garantie.",
+    "feedback": "In MC-Prüfungen sind Aussagen mit 'automatisch', 'garantiert' oder 'immer' oft zu absolut formuliert und deshalb falsch.",
+    "misconception": "Notwendige Bedingungen werden fälschlich als hinreichend behandelt: 'ohne Bekanntheit kein Kauf' wird zu 'mit Bekanntheit immer Kauf' verdreht.",
+    "distractorExplanation": "Die Option 'hat nichts damit zu tun' klingt wie eine sinnvolle Gegenposition, verneint aber zu Unrecht jeden Zusammenhang - auch das ist fachlich falsch."
+  },
+  {
+    "id": "demo-misconception-2",
+    "method": "misconception",
+    "modeSupport": ["learn", "apply", "exam"],
+    "compassPath": ["Marketingmix", "Vertriebspolitik", "Vertriebswege"],
+    "concept": "Direkter vs. indirekter Vertrieb",
+    "explanation": "Beim direkten Vertrieb verkauft der Hersteller ohne rechtlich selbstständige Zwischenstufe an den Endkunden. Beim indirekten Vertrieb sind rechtlich selbstständige Absatzmittler zwischengeschaltet.",
+    "prompt": "\"Sobald ein Hersteller online verkauft, handelt es sich immer um direkten Vertrieb.\" Was ist an dieser Aussage fachlich problematisch?",
+    "choices": [
+      "Entscheidend ist nicht der Kanal (online/offline), sondern ob ein rechtlich selbstständiger Absatzmittler zwischengeschaltet ist",
+      "Es gibt online grundsätzlich keinen direkten Vertrieb",
+      "Direkter Vertrieb bedeutet immer den Verkauf über eine eigene Website",
+      "Online-Verkauf zählt weder zu direktem noch zu indirektem Vertrieb"
+    ],
+    "correctAnswer": "Entscheidend ist nicht der Kanal (online/offline), sondern ob ein rechtlich selbstständiger Absatzmittler zwischengeschaltet ist",
+    "decisiveClue": "Das Wort \"immer\" verknüpft einen Kanal (online) fest mit einer Vertriebsform - der Kanal ist aber nicht das entscheidende Kriterium.",
+    "feedback": "Prüfe bei Vertriebsfragen immer, wer rechtlich selbstständig zwischengeschaltet ist, nicht über welchen Kanal verkauft wird.",
+    "misconception": "Der Kanal (online vs. stationär) wird fälschlich mit der Vertriebsform (direkt vs. indirekt) gleichgesetzt.",
+    "distractorExplanation": "Die Option zur eigenen Website klingt plausibel, weil Online-Shops oft direkt betrieben werden - ein Online-Marktplatz mit selbstständigen Händlern wäre aber indirekter Vertrieb."
+  },
+  {
+    "id": "demo-case-1",
+    "method": "case",
+    "modeSupport": ["learn", "apply", "exam"],
+    "compassPath": ["Marketingmix", "Preispolitik", "Preisstrategie"],
+    "concept": "Preisstrategie-Entscheidung",
+    "explanation": "Die Wahl zwischen Skimming- und Penetrationsstrategie hängt vom strategischen Ziel und vom Wettbewerbsumfeld ab, nicht von der Produktkategorie allein.",
+    "guidedExample": "Ein Hersteller bringt eine technisch klar überlegene, patentgeschützte Kaffeemaschine ohne nahe Konkurrenz auf den Markt und verlangt einen hohen Einführungspreis. Entscheidendes Signal: kein unmittelbarer Wettbewerbsdruck und zahlungsbereite Käufer - das spricht für Skimming.",
+    "prompt": "Ein Anbieter bringt eine austauschbare Powerbank in einen Markt mit vielen nahezu identischen Konkurrenzprodukten und setzt einen auffällig niedrigen Einführungspreis an, um schnell viele Erstkäufer zu gewinnen. Welche Preisstrategie liegt vor?",
+    "choices": ["Skimmingstrategie", "Penetrationsstrategie", "Prestigepreisstrategie", "Mitläuferpreisstrategie"],
+    "correctAnswer": "Penetrationsstrategie",
+    "decisiveClue": "Entscheidend ist die Kombination aus starkem Wettbewerb (austauschbares Produkt, viele Konkurrenten) und dem Ziel, schnell Marktanteile über einen niedrigen Preis zu gewinnen.",
+    "reasoning": "Fall: austauschbares Produkt, viele Konkurrenten, sehr niedriger Einführungspreis. Signal: das Ziel ist schnelle Marktdurchdringung, nicht Abschöpfung. Regel: niedriger Einführungspreis + Ziel Marktanteile = Penetration. Alternativen ausschließen: Skimming passt nicht (Preis ist niedrig, nicht hoch), Prestigepreis passt nicht (kein dauerhaft hoher Preis, kein Exklusivitätsanspruch), Mitläuferpreis passt nicht (der Preis wird hier aktiv strategisch gewählt, nicht nur an den Marktpreis angepasst) - damit bleibt Penetration.",
+    "feedback": "Achte in der Klausur auf zwei Signale gleichzeitig: die Richtung des Preises (hoch/niedrig) und das genannte Ziel (Abschöpfung/Marktanteile) - nur beide zusammen legen die Strategie eindeutig fest.",
+    "misconception": "Ein niedriger Preis wird manchmal vorschnell mit 'billig/unprofessionell' statt mit einer bewussten Markteintrittsstrategie gleichgesetzt.",
+    "distractorExplanation": "Mitläuferpreisstrategie klingt plausibel, weil der Preis ebenfalls am Wettbewerb orientiert ist - hier wird der niedrige Preis aber aktiv gewählt, um Marktanteile zu gewinnen, nicht nur um sich am Marktniveau zu orientieren."
+  },
+  {
+    "id": "demo-case-2",
+    "method": "case",
+    "modeSupport": ["learn", "apply", "exam"],
+    "compassPath": ["Marketingmix", "Kommunikationspolitik", "Instrumentewahl"],
+    "concept": "Kommunikationsinstrument-Wahl",
+    "explanation": "Die Wahl des Kommunikationsinstruments richtet sich danach, wie komplex die Botschaft ist, wie groß die Zielgruppe ist und ob persönliche Erklärung nötig ist.",
+    "prompt": "Ein Hersteller komplexer Industrieanlagen möchte technisch versierten Einkäufern ein neues Produkt im direkten Gespräch erklären und Fragen sofort beantworten können. Welches Kommunikationsinstrument passt am besten?",
+    "choices": ["Mediawerbung", "Messen/Ausstellungen", "Sponsoring", "Social-Media-Kommunikation"],
+    "correctAnswer": "Messen/Ausstellungen",
+    "decisiveClue": "Entscheidend ist der Bedarf an direktem, persönlichem Dialog mit einer kleinen, fachlich anspruchsvollen Zielgruppe zur Erklärung eines komplexen Produkts.",
+    "reasoning": "Fall: komplexe Botschaft, kleine Fachzielgruppe, Bedarf an direkter Erklärung. Signal: 'im direkten Gespräch erklären, Fragen sofort beantworten'. Regel: persönlicher Dialog mit Fachpublikum passt zu Messen/Ausstellungen. Alternativen ausschließen: Mediawerbung erreicht ein breites, anonymes Publikum ohne Dialog; Sponsoring wirkt eher auf Image/Bekanntheit statt Produkterklärung; Social Media erreicht breit, aber nicht gezielt fachlich vertieft im persönlichen Gespräch.",
+    "feedback": "Wenn eine Aufgabe 'direktes Gespräch', 'sofort erklären' oder 'Fachpublikum' betont, ist meist ein Instrument mit persönlichem Kontakt gesucht, nicht ein Massenmedium.",
+    "misconception": "Komplexe Produkte werden manchmal automatisch mit teurer Mediawerbung verknüpft, obwohl Erklärungsbedarf eher für persönliche Instrumente spricht.",
+    "distractorExplanation": "Social-Media-Kommunikation klingt plausibel, weil sie ebenfalls Dialog ermöglicht - sie erreicht aber ein breites Publikum und ersetzt kein persönliches Fachgespräch mit gezielter Erklärung."
+  },
+  {
+    "id": "demo-assignment-1",
+    "method": "assignment",
+    "modeSupport": ["learn", "apply", "exam"],
+    "compassPath": ["Marketingmix", "Gesamtstruktur"],
+    "concept": "Die vier Marketinginstrumente",
+    "explanation": "Der Marketingmix besteht aus vier Instrumenten: Produkt-, Preis-, Kommunikations- und Vertriebspolitik. Jede konkrete Maßnahme lässt sich genau einem Instrument zuordnen.",
+    "prompt": "Ordne jede Maßnahme dem passenden Marketinginstrument zu.",
+    "items": [
+      { "id": "packaging", "label": "Einführung eines neuen Verpackungsdesigns" },
+      { "id": "discount", "label": "Gewährung von Rabatten bei Großbestellungen" },
+      { "id": "tv-ad", "label": "Schaltung eines Fernsehwerbespots" },
+      { "id": "own-shop", "label": "Aufbau eines eigenen Onlineshops" }
+    ],
+    "targets": [
+      { "id": "product", "label": "Produktpolitik" },
+      { "id": "price", "label": "Preispolitik" },
+      { "id": "communication", "label": "Kommunikationspolitik" },
+      { "id": "distribution", "label": "Vertriebspolitik" }
+    ],
+    "assignments": {
+      "packaging": "product",
+      "discount": "price",
+      "tv-ad": "communication",
+      "own-shop": "distribution"
+    },
+    "itemFeedback": {
+      "packaging": { "decisiveClue": "Die Verpackung verändert das Produkt selbst, nicht seinen Preis oder Vertrieb." },
+      "discount": { "decisiveClue": "Rabatte verändern, was der Kunde zahlt - das ist Preispolitik, auch wenn sie in einer Kampagne beworben werden." },
+      "tv-ad": { "decisiveClue": "Werbung wirkt auf die Kommunikation zur Zielgruppe, verändert weder Produkt noch Preis noch Vertriebsweg." },
+      "own-shop": { "decisiveClue": "Ein eigener Onlineshop ist ein Vertriebsweg zum Kunden - Vertriebspolitik." }
+    },
+    "feedback": "In der Klausur hilft die Frage 'Was genau verändert diese Maßnahme - das Angebot, den Preis, die Botschaft oder den Weg zum Kunden?'",
+    "mcQuestionReference": { "category": "Marketing-Mix", "question": null }
+  },
+  {
+    "id": "demo-assignment-2",
+    "method": "assignment",
+    "modeSupport": ["learn", "apply", "exam"],
+    "compassPath": ["Marketingmix", "Marktforschung", "Erhebungsmethoden"],
+    "concept": "Primär- vs. Sekundärforschung",
+    "explanation": "Primärforschung erhebt neue, eigens für die Fragestellung gesammelte Daten. Sekundärforschung nutzt bereits vorhandene Daten aus anderer Quelle.",
+    "prompt": "Ordne jede Erhebung der passenden Forschungsart zu.",
+    "items": [
+      { "id": "survey", "label": "Befragung von 500 zufällig ausgewählten Personen zum neuen Produkt" },
+      { "id": "office-stats", "label": "Auswertung bereits vorhandener Statistiken eines Statistikamts" },
+      { "id": "in-store", "label": "Beobachtung des Kaufverhaltens direkt im Geschäft" },
+      { "id": "published-study", "label": "Nutzung einer bereits veröffentlichten Marktstudie eines Verbands" }
+    ],
+    "targets": [
+      { "id": "primary", "label": "Primärforschung" },
+      { "id": "secondary", "label": "Sekundärforschung" }
+    ],
+    "assignments": {
+      "survey": "primary",
+      "office-stats": "secondary",
+      "in-store": "primary",
+      "published-study": "secondary"
+    },
+    "itemFeedback": {
+      "survey": { "decisiveClue": "Die Daten werden eigens für diese Fragestellung neu erhoben." },
+      "office-stats": { "decisiveClue": "Die Daten existierten bereits vor und unabhängig von dieser Fragestellung." },
+      "in-store": { "decisiveClue": "Auch eine eigene Beobachtung ist eine neu erhobene Originaldatenquelle." },
+      "published-study": { "decisiveClue": "Eine fremde, bereits publizierte Studie ist per Definition Sekundärforschung." }
+    },
+    "feedback": "Entscheidend ist nicht die Methode (Befragung, Beobachtung, ...), sondern ob die Daten neu für diesen Zweck erhoben wurden oder schon vorher existierten."
+  },
+  {
+    "id": "demo-matrix-1",
+    "method": "matrix",
+    "modeSupport": ["learn", "apply", "exam"],
+    "compassPath": ["Marketingmix", "Strategische Grundlagen", "Produkt-Markt-Matrix"],
+    "concept": "Produkt-Markt-Matrix (Ansoff)",
+    "explanation": "Die Produkt-Markt-Matrix ordnet Wachstumsstrategien danach ein, ob Produkt und Markt jeweils bestehend oder neu sind.",
+    "guidedExample": "Ein Getränkehersteller verkauft sein bestehendes Produkt zusätzlich in einem neuen Auslandsmarkt. Markt ist neu, Produkt bleibt gleich - das ist Marktentwicklung.",
+    "prompt": "Ein Café erweitert sein Sortiment um ein neues veganes Frühstücksangebot ausschließlich für seine bisherigen Stammkunden. Welches Feld der Produkt-Markt-Matrix trifft zu?",
+    "rowLabels": ["Bestehender Markt", "Neuer Markt"],
+    "columnLabels": ["Bestehendes Produkt", "Neues Produkt"],
+    "correctCell": { "row": "Bestehender Markt", "column": "Neues Produkt" },
+    "reasoning": "Dimension Markt: bleibt gleich, es sind weiterhin die bisherigen Stammkunden. Dimension Produkt: ist neu, das vegane Frühstücksangebot gab es vorher nicht. Daraus folgt das Feld 'Bestehender Markt × Neues Produkt' - Produktentwicklung.",
+    "misconception": "Ein neues Angebot wird manchmal automatisch als Diversifikation eingeordnet, ohne zu prüfen, ob auch der Markt neu ist.",
+    "distractorExplanation": "Diversifikation (neuer Markt × neues Produkt) klingt plausibel, weil das Produkt neu ist - hier bleibt aber die Zielgruppe/der Markt unverändert, also ist es nur Produktentwicklung."
+  },
+  {
+    "id": "demo-process-1",
+    "method": "process",
+    "modeSupport": ["learn", "apply", "exam"],
+    "compassPath": ["Marketingmix", "Marktforschung", "Marktforschungsprozess"],
+    "concept": "Ablauf des Marktforschungsprozesses",
+    "explanation": "Der Marktforschungsprozess läuft in einer festen Reihenfolge ab: Erst das Problem klären, dann das Design planen, dann erheben, auswerten und zuletzt berichten.",
+    "prompt": "Bringe die folgenden Schritte des Marktforschungsprozesses in die richtige Reihenfolge.",
+    "steps": [
+      { "id": "analysis", "label": "Datenauswertung" },
+      { "id": "report", "label": "Ergebnisbericht" },
+      { "id": "problem", "label": "Formulierung des Untersuchungsproblems" },
+      { "id": "collection", "label": "Datenerhebung" },
+      { "id": "design", "label": "Entwicklung des Forschungsdesigns" }
+    ],
+    "correctOrder": ["problem", "design", "collection", "analysis", "report"],
+    "stepFeedback": {
+      "problem": "Ohne geklärte Fragestellung lässt sich kein sinnvolles Erhebungsdesign planen - deshalb steht dieser Schritt am Anfang.",
+      "design": "Das Design (Methode, Stichprobe, Instrument) muss feststehen, bevor überhaupt Daten erhoben werden können.",
+      "collection": "Erst wenn das Design steht, werden die eigentlichen Daten gesammelt.",
+      "analysis": "Ausgewertet werden kann erst, wenn die Erhebung abgeschlossen ist.",
+      "report": "Der Bericht fasst die bereits ausgewerteten Ergebnisse zusammen - er kann erst ganz am Ende stehen."
+    },
+    "reasoning": "Jeder Schritt liefert die notwendige Grundlage für den nächsten: Problem vor Design, Design vor Erhebung, Erhebung vor Auswertung, Auswertung vor Bericht.",
+    "misconception": "Datenerhebung und Forschungsdesign werden manchmal vertauscht - ohne festgelegtes Design (z. B. Stichprobenverfahren) lässt sich aber nicht sinnvoll erheben.",
+    "feedback": "In der Klausur wird oft genau dieses Vertauschen von Design und Erhebung als Distraktor genutzt."
+  }
+]

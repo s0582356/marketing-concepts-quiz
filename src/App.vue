@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import QuizCard from './components/QuizCard.vue'
 import ScoreBox from './components/ScoreBox.vue'
 import PrivateQuestionImporter from './components/PrivateQuestionImporter.vue'
+import MethodTrainerApp from './methodtrainer/MethodTrainerApp.vue'
 import sampleQuestions from './data/public/sampleQuestions.json'
 import {
   deleteBankProgress,
@@ -24,6 +25,8 @@ function getInitialTheme() {
 function applyTheme(themeValue) {
   if (typeof document !== 'undefined') document.documentElement.setAttribute('data-theme', themeValue)
 }
+
+const currentView = ref('quiz')
 
 const theme = ref(getInitialTheme())
 applyTheme(theme.value)
@@ -340,8 +343,32 @@ function formatSavedAt(value) {
       </p>
       <p class="question-bank-label">{{ questionBankName }}</p>
       <p v-if="isReviewMode" class="review-mode-label">Wiederholung falscher Fragen</p>
+
+      <div class="view-switcher" role="tablist" aria-label="Bereich wählen">
+        <button
+          type="button"
+          role="tab"
+          class="view-switcher-button"
+          :class="{ 'view-switcher-active': currentView === 'quiz' }"
+          :aria-selected="currentView === 'quiz'"
+          @click="currentView = 'quiz'"
+        >
+          Quiz
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="view-switcher-button"
+          :class="{ 'view-switcher-active': currentView === 'trainer' }"
+          :aria-selected="currentView === 'trainer'"
+          @click="currentView = 'trainer'"
+        >
+          Methodentrainer
+        </button>
+      </div>
     </section>
 
+    <template v-if="currentView === 'quiz'">
     <section v-if="!isQuizStarted" class="start-layout" aria-label="Quiz vorbereiten">
       <PrivateQuestionImporter ref="importer" @questions-loaded="loadPrivateQuestions" />
 
@@ -475,9 +502,12 @@ function formatSavedAt(value) {
       <h2>Keine Fragen gefunden</h2>
       <p>Bitte prüfe die Datei src/data/public/sampleQuestions.json.</p>
     </section>
+    </template>
+
+    <MethodTrainerApp v-else :mc-questions="originalQuestions" />
 
     <footer class="app-footer" aria-label="Projektinformationen">
-      <span>Version 0.3.0</span>
+      <span>Version 0.4.0</span>
       <span>Marketing edition</span>
       <a
         href="https://github.com/s0582356/marketing-concepts-quiz"
