@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import QuizCard from './components/QuizCard.vue'
 import ScoreBox from './components/ScoreBox.vue'
 import PrivateQuestionImporter from './components/PrivateQuestionImporter.vue'
+import LibraryLoader from './components/LibraryLoader.vue'
 import MethodTrainerApp from './methodtrainer/MethodTrainerApp.vue'
 import sampleQuestions from './data/public/sampleQuestions.json'
 import {
@@ -11,6 +12,12 @@ import {
   listBankProgress,
   saveBankProgress,
 } from './utils/progressStorage.js'
+import {
+  addLibraryBanks,
+  combinedMcFingerprint,
+  mergeMcQuestions,
+  mergeTrainingUnits,
+} from './utils/libraryImport.js'
 
 const THEME_STORAGE_KEY = 'marketingQuizTheme'
 
@@ -62,6 +69,31 @@ const currentStreak = ref(0)
 const bestStreak = ref(0)
 const incorrectlyAnsweredQuestions = ref([])
 const answeredQuestions = ref([])
+
+// Zentrale Lernbibliotheken-Registry (lebt auf App-Ebene, überlebt Tab-Wechsel):
+// mehrere private MC-Fragenbanken und Trainingseinheiten-Banken gleichzeitig,
+// je Content-Fingerprint (nicht Dateiname) getrennt gehalten - siehe
+// libraryImport.js für die genaue Bank-Identitäts-Semantik. Das ist die
+// einzige Quelle der Wahrheit für den aktiven privaten MC-/Trainingspool:
+// sowohl der zentrale Multi-Loader als auch der alte Einzelimporter
+// (PrivateQuestionImporter) schreiben ausschließlich hierhin.
+const mcLibraryBanks = ref({})
+const trainingUnitLibraryBanks = ref({})
+
+const libraryMcQuestions = computed(() => mergeMcQuestions(mcLibraryBanks.value))
+const libraryTrainingUnits = computed(() => mergeTrainingUnits(trainingUnitLibraryBanks.value))
+// Anzeigenamen kommen aus den Bank-Objekten (bank.fileName), nicht aus den
+// Registry-Keys - die Keys sind Content-Fingerprints, keine Dateinamen.
+const libraryFileNames = computed(() => [
+  ...Object.values(mcLibraryBanks.value).map((bank) => bank.fileName),
+  ...Object.values(trainingUnitLibraryBanks.value).map((bank) => bank.fileName),
+].sort())
+// Registry-Keys sind bereits Content-Fingerprints - direkt als "bereits
+// bekannt" an den Multi-Loader reichen (siehe LibraryLoader knownFingerprints).
+const knownLibraryFingerprints = computed(() => new Set([
+  ...Object.keys(mcLibraryBanks.value),
+  ...Object.keys(trainingUnitLibraryBanks.value),
+]))
 
 const totalQuestions = computed(() => questions.value.length)
 const wrongAnswerCount = computed(() => totalQuestions.value - score.value)
@@ -280,7 +312,24 @@ function restorePrivateProgress(importedQuestions, fileName, fingerprint, progre
   resumeError.value = ''
 }
 
-function loadPrivateQuestions({ questions: importedQuestions, fileName, fingerprint, requestedFingerprint }) {
+// Setzt den aktiven Quiz-/Mixed-Exam-/Resolver-Pool immer aus der zentralen
+// MC-Registry ab - einzige Quelle der Wahrheit, kein zweiter, davon
+// unabhängiger Pool-State. Wird sowohl vom zentralen Multi-Loader als auch
+// vom alten Einzelimporter aufgerufen (Codex MAJOR_FIX: Legacy-Importer).
+async function activateMcLibraryPool() {
+  const bankCount = Object.keys(mcLibraryBanks.value).length
+  originalQuestions.value = libraryMcQuestions.value
+  questions.value = libraryMcQuestions.value
+  privateBankFileName.value = `Lernbibliothek (${bankCount} MC-Bank${bankCount === 1 ? '' : 'en'})`
+  activeFingerprint.value = await combinedMcFingerprint(mcLibraryBanks.value)
+  questionBankName.value = `Eigene Fragebank: ${privateBankFileName.value}`
+  isReviewMode.value = false
+  isQuizStarted.value = false
+  resumeError.value = ''
+  resetQuizProgress()
+}
+
+async function loadPrivateQuestions({ questions: importedQuestions, fileName, fingerprint, requestedFingerprint }) {
   if (requestedFingerprint) {
     if (fingerprint !== requestedFingerprint) {
       resumeError.value = 'Diese Datei gehört nicht zu diesem gespeicherten Lernstand.'
@@ -295,15 +344,24 @@ function loadPrivateQuestions({ questions: importedQuestions, fileName, fingerpr
     restorePrivateProgress(importedQuestions, fileName, fingerprint, progress)
     return
   }
-  originalQuestions.value = importedQuestions
-  questions.value = importedQuestions
-  privateBankFileName.value = fileName
-  activeFingerprint.value = fingerprint
-  questionBankName.value = `Eigene Fragebank: ${fileName}`
-  isReviewMode.value = false
-  isQuizStarted.value = false
-  resumeError.value = ''
-  resetQuizProgress()
+  // Frischer (Nicht-Resume-)Einzelimport über den alten PrivateQuestionImporter:
+  // läuft über dieselbe zentrale Registry-Pipeline wie der Multi-Loader, statt
+  // originalQuestions direkt und ohne Registry-Update zu ersetzen (Codex
+  // MAJOR_FIX: entkoppelter Legacy-Importer). Registry, Statusanzeige, Quiz,
+  // Mixed Exam und Resolver haben danach garantiert denselben aktiven Pool.
+  await handleLibraryLoaded({ mcBanks: [{ fileName, fingerprint, questions: importedQuestions }], trainingUnitBanks: [] })
+}
+
+// Zentraler Multi-Datei-Import (und, via loadPrivateQuestions, der alte
+// Einzelimporter): fügt Banken in die Registry ein und aktiviert danach immer
+// den vollständig aus der Registry abgeleiteten Pool - direkt in Quiz, Mixed
+// Exam und Resolver. Trainingseinheiten-Banken werden separat gehalten und
+// als Prop an den Methodentrainer weitergegeben.
+async function handleLibraryLoaded(result) {
+  if (result.mcBanks.length) mcLibraryBanks.value = addLibraryBanks(mcLibraryBanks.value, result.mcBanks)
+  if (result.trainingUnitBanks.length) trainingUnitLibraryBanks.value = addLibraryBanks(trainingUnitLibraryBanks.value, result.trainingUnitBanks)
+
+  if (result.mcBanks.length) await activateMcLibraryPool()
 }
 
 function requestResume(fingerprint) {
@@ -367,6 +425,16 @@ function formatSavedAt(value) {
         </button>
       </div>
     </section>
+
+    <LibraryLoader
+      :mc-bank-count="Object.keys(mcLibraryBanks).length"
+      :mc-question-count="libraryMcQuestions.length"
+      :training-unit-bank-count="Object.keys(trainingUnitLibraryBanks).length"
+      :training-unit-count="libraryTrainingUnits.length"
+      :loaded-file-names="libraryFileNames"
+      :known-fingerprints="knownLibraryFingerprints"
+      @library-loaded="handleLibraryLoaded"
+    />
 
     <template v-if="currentView === 'quiz'">
     <section v-if="!isQuizStarted" class="start-layout" aria-label="Quiz vorbereiten">
@@ -504,7 +572,11 @@ function formatSavedAt(value) {
     </section>
     </template>
 
-    <MethodTrainerApp v-else :mc-questions="originalQuestions" />
+    <MethodTrainerApp
+      v-else
+      :mc-questions="originalQuestions"
+      :library-training-units="libraryTrainingUnits"
+    />
 
     <footer class="app-footer" aria-label="Projektinformationen">
       <span>Version 0.4.0</span>

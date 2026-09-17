@@ -19,6 +19,13 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  // Trainingseinheiten aus der zentralen Lernbibliotheken-Registry (App.vue).
+  // Lebt oberhalb dieser Komponente und bleibt daher beim Tab-Wechsel
+  // (Quiz <-> Methodentrainer, der diese Komponente neu montiert) erhalten.
+  libraryTrainingUnits: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 // Öffentliche Demo-Einheiten laufen durch dieselbe Validierung wie private Importe.
@@ -87,8 +94,15 @@ const sessionCorrect = ref(0)
 const sessionStage = ref('unit') // 'unit' | 'mcQuestion' | 'mcNotFound'
 const resolvedMcQuestion = ref(null)
 
-const allUnits = computed(() => (privateUnits.value.length > 0 ? privateUnits.value : demoUnits))
-const isUsingPrivateData = computed(() => privateUnits.value.length > 0)
+// Priorität: zentrale Lernbibliothek (überlebt den Tab-Wechsel) > lokaler
+// Einzelimport dieser Komponente (bleibt aus Kompatibilitätsgründen bestehen,
+// geht aber wie bisher beim Neu-Mounten verloren) > öffentliche Demo-Daten.
+const allUnits = computed(() => {
+  if (props.libraryTrainingUnits.length > 0) return props.libraryTrainingUnits
+  if (privateUnits.value.length > 0) return privateUnits.value
+  return demoUnits
+})
+const isUsingPrivateData = computed(() => allUnits.value !== demoUnits)
 
 function unitsFor(methodKey) {
   const def = METHOD_DEFINITIONS.find((m) => m.key === methodKey)
@@ -192,7 +206,9 @@ function handleOpenMethodFromExam(dataMethod) {
     <TrainingUnitImporter ref="importer" @units-loaded="onUnitsLoaded" />
     <p v-if="importNotice" class="import-notice" role="status">{{ importNotice }}</p>
     <p class="question-bank-label">
-      {{ isUsingPrivateData ? `Eigene Trainingsdaten: ${privateFileName}` : 'Öffentliche Beispiel-Trainingseinheiten' }}
+      <template v-if="libraryTrainingUnits.length > 0">Eigene Trainingsdaten: {{ libraryTrainingUnits.length }} Einheiten aus der Lernbibliothek</template>
+      <template v-else-if="isUsingPrivateData">Eigene Trainingsdaten: {{ privateFileName }}</template>
+      <template v-else>Öffentliche Beispiel-Trainingseinheiten</template>
     </p>
 
     <section v-if="!activeMethod" class="method-picker" aria-label="Trainingsmethode wählen">

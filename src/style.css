@@ -288,6 +288,7 @@ h1 {
 .question-card,
 .result-card,
 .import-card,
+.library-loader-card,
 .start-card,
 .saved-progress-card {
   border: 1px solid var(--color-border-primary);
@@ -615,7 +616,8 @@ h1 {
   color: var(--color-text-yellow-dark);
 }
 
-.import-card {
+.import-card,
+.library-loader-card {
   width: min(100%, 760px);
   margin: 0 auto 22px;
   padding: 20px;
@@ -626,15 +628,67 @@ h1 {
   border-left: 5px solid var(--color-accent-teal);
 }
 
-.import-card h2 {
+.library-loader-card {
+  flex-wrap: wrap;
+}
+
+.import-card h2,
+.library-loader-card h2 {
   margin: 0 0 6px;
   font-size: 1.05rem;
 }
 
-.import-card p {
+.import-card p,
+.library-loader-card p {
   margin: 0;
   color: var(--color-text-secondary);
   line-height: 1.5;
+}
+
+.library-loader-button {
+  flex: 0 0 auto;
+}
+
+.library-status {
+  width: 100%;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border-primary);
+}
+
+.library-status h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.library-status p {
+  margin: 2px 0;
+  font-size: 0.92rem;
+  color: var(--color-text-primary);
+}
+
+.library-filenames-toggle {
+  margin-top: 6px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 0.85rem;
+  color: var(--color-accent-teal);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.library-filenames-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.import-message {
+  width: 100%;
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
 }
 
 .import-button {
@@ -880,7 +934,8 @@ h1 {
     right: 14px;
   }
 
-  .import-card {
+  .import-card,
+  .library-loader-card {
     flex-direction: column;
     align-items: stretch;
     text-align: center;
