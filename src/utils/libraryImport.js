@@ -105,16 +105,20 @@ export function addLibraryBanks(banksByFingerprint, importedBanks) {
   }, { ...banksByFingerprint })
 }
 
-// Sortiert Banken für einen deterministischen Merge-Pool nach Anzeigename
-// (nutzerseitig nachvollziehbar), mit dem Fingerprint als stabilem
-// Tiebreaker für mehrere Banken mit gleichem Anzeigenamen, aber
-// unterschiedlichem Inhalt.
+// Sortiert Banken für einen deterministischen Merge-Pool ausschließlich nach
+// Content-Fingerprint - NICHT nach Anzeigename. Der Dateiname ist reines
+// Alias-Metadatum (siehe Kopfkommentar) und darf die Poolreihenfolge nicht
+// beeinflussen: Quiz und Mixed Exam speichern rohe Positions-Indizes in den
+// gemergten Pool (runQuestionIndices/poolIndices) und lösen sie nach einem
+// Reload ausschließlich über den Library-Set-Fingerprint wieder auf. Der
+// Set-Fingerprint hängt selbst nur von den (sortierten) Bank-Fingerprints ab,
+// nicht von Dateinamen - identische Bank-Inhalte unter geänderten Dateinamen
+// (z. B. eine umbenannte Kopie derselben Datei) müssen deshalb zwingend
+// denselben Merge-Pool in derselben Reihenfolge ergeben, sonst zeigen
+// gespeicherte Indizes nach dem Reimport auf andere Fragen/Einheiten als
+// ursprünglich gespeichert (Codex Delta Review, Finding M-1).
 function sortedBanks(banksByFingerprint) {
-  return Object.values(banksByFingerprint).sort((left, right) => (
-    left.fileName === right.fileName
-      ? left.fingerprint.localeCompare(right.fingerprint)
-      : left.fileName.localeCompare(right.fileName)
-  ))
+  return Object.values(banksByFingerprint).sort((left, right) => left.fingerprint.localeCompare(right.fingerprint))
 }
 
 export function mergeMcQuestions(mcBanksByFingerprint) {
@@ -131,5 +135,13 @@ export function mergeTrainingUnits(trainingUnitBanksByFingerprint) {
 // Fortschrittsspeichers (progressStorage.js).
 export async function combinedMcFingerprint(mcBanksByFingerprint) {
   const parts = Object.keys(mcBanksByFingerprint).sort()
+  return hashText(parts.join('|'))
+}
+
+// Analog zu combinedMcFingerprint, für die separat gehaltene Trainingseinheiten-
+// Registry - eigene, von der MC-Bank-Identität unabhängige technische Identität
+// für den Methodentrainer-Resume (siehe learningProgress.js).
+export async function combinedTrainingFingerprint(trainingUnitBanksByFingerprint) {
+  const parts = Object.keys(trainingUnitBanksByFingerprint).sort()
   return hashText(parts.join('|'))
 }

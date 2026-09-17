@@ -46,6 +46,8 @@ async function handleFileChange(event) {
 }
 
 const hasAnyLibrary = () => props.mcBankCount > 0 || props.trainingUnitBankCount > 0
+
+defineExpose({ openFilePicker })
 </script>
 
 <template>

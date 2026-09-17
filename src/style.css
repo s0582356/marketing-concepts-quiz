@@ -9,89 +9,124 @@
 
   color-scheme: light;
 
+  /* ==== Marken-Designtokens (Quelle der Wahrheit) ====
+     Indigo/Violett als Primärfarbe, Magenta als Akzent, gedämpftes Türkis als
+     Sekundärakzent - siehe Abschlussbericht Teil I für die Gesamtkonzeption.
+     Die --color-* Variablen darunter sind semantische Aliase auf diese Tokens,
+     damit bestehende Komponenten-Styles unverändert bleiben können. */
+  --brand-primary: #4338ca;
+  --brand-primary-dark: #3730a3;
+  --brand-primary-soft: #818cf8;
+  --brand-accent: #a21caf;
+  --brand-accent-strong: #86198f;
+  --brand-accent-soft: #e879f9;
+  --brand-secondary: #0e7490;
+  --brand-secondary-soft: #67e8f9;
+
+  --surface: #ffffff;
+  --surface-elevated: #fefcff;
+  --background: #f5f4fc;
+
+  --text-primary: #1e1b33;
+  --text-secondary: #4b4566;
+  --text-muted: #6e6789;
+  --text-on-accent: #ffffff;
+
+  --border: #e1def2;
+
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #b91c1c;
+
+  /* Kleine eigene Akzentfarben je Methodentrainer-Kachel (siehe Abschnitt
+     "Dashboard"/"Methodentrainer" weiter unten) - ergänzen die Markenfarben,
+     ersetzen sie nicht. */
+  --method-accent-violet: #7c3aed;
+  --method-accent-blue: #2563eb;
+
   /* Haupttext */
-  --color-text-primary: #17221f;
-  --color-text-heading-warm: #2b2621;
+  --color-text-primary: var(--text-primary);
+  --color-text-heading-warm: var(--text-primary);
 
   /* Sekundärtext */
-  --color-text-secondary: #4f5d57;
+  --color-text-secondary: var(--text-secondary);
 
   /* gedämpfter Text */
-  --color-text-muted: #6f7a75;
-  --color-text-yellow-dark: #7b4a03;
+  --color-text-muted: var(--text-muted);
+  --color-text-yellow-dark: var(--warning);
 
   /* Text auf Akzentflächen (z. B. Primary-Button) */
-  --color-text-on-accent: #fffaf2;
+  --color-text-on-accent: var(--text-on-accent);
 
   /* Body-Hintergrund / Gradient */
-  --color-bg-root: #f6f1e8;
-  --color-bg-grid-line: rgba(24, 96, 91, 0.08);
-  --color-bg-gradient-1: #f8f3eb;
-  --color-bg-gradient-2: #edf4ef;
-  --color-bg-gradient-3: #f7efe7;
+  --color-bg-root: var(--background);
+  --color-bg-grid-line: rgba(67, 56, 202, 0.06);
+  --color-bg-gradient-1: #f7f6fd;
+  --color-bg-gradient-2: #f1eefc;
+  --color-bg-gradient-3: #fbf0fa;
 
   /* Kartenflächen */
-  --color-surface-card: #fffdf8;
+  --color-surface-card: var(--surface);
 
   /* sekundäre Flächen */
-  --color-surface-secondary: #fffaf2;
-  --color-surface-answer: #f8f3eb;
-  --color-surface-answer-hover: #fff6e8;
-  --color-surface-memory-hint: #fbf7ef;
-  --color-surface-memory-hint-hover: #f2ead9;
-  --color-surface-teal-tint: #edf7f3;
-  --color-surface-teal-light: #e8f5f1;
-  --color-surface-yellow-light: #fff2d2;
+  --color-surface-secondary: #faf9ff;
+  --color-surface-answer: #f7f6fe;
+  --color-surface-answer-hover: #efedfc;
+  --color-surface-memory-hint: #f9f6fd;
+  --color-surface-memory-hint-hover: #f1e9f8;
+  --color-surface-teal-tint: #ecfafc;
+  --color-surface-teal-light: #dff6f9;
+  --color-surface-yellow-light: #fef3c7;
 
   /* Rahmen */
-  --color-border-primary: #d9cdbb;
-  --color-border-secondary: #dfd4c4;
-  --color-border-muted: #c7bba9;
-  --color-border-answer: #d3c5b3;
-  --color-border-teal-light: #82b9ae;
-  --color-border-yellow: #e8bf73;
+  --color-border-primary: var(--border);
+  --color-border-secondary: #e7e4f5;
+  --color-border-muted: #d8d3ef;
+  --color-border-answer: #dad5f0;
+  --color-border-teal-light: #67c7d6;
+  --color-border-yellow: #f3c969;
 
   /* Schatten */
-  --shadow-hero: 0 18px 40px rgba(63, 45, 29, 0.09);
-  --shadow-card: 0 18px 36px rgba(63, 45, 29, 0.08);
-  --shadow-answer-hover: 0 10px 22px rgba(224, 93, 63, 0.12);
+  --shadow-hero: 0 18px 40px rgba(67, 56, 202, 0.12);
+  --shadow-card: 0 14px 32px rgba(67, 56, 202, 0.1);
+  --shadow-answer-hover: 0 10px 22px rgba(162, 28, 175, 0.14);
 
-  /* Orange-Akzent */
-  --color-accent-orange: #e05d3f;
-  --color-accent-orange-strong: #b83f2b;
-  --color-accent-orange-darkest: #8f2d21;
+  /* Haupt-Akzent (Magenta) - primäre CTAs, Eyebrow-Labels, Hero-Akzente */
+  --color-accent-orange: var(--brand-accent);
+  --color-accent-orange-strong: var(--brand-accent-strong);
+  --color-accent-orange-darkest: #701a75;
 
-  /* Teal-Akzent */
-  --color-accent-teal: #18605b;
-  --color-accent-teal-dark: #124944;
+  /* Struktur-Akzent (Indigo) - Tabs, Fokus, sekundäre CTAs */
+  --color-accent-teal: var(--brand-primary);
+  --color-accent-teal-dark: var(--brand-primary-dark);
 
-  /* Gelb-Akzent */
-  --color-accent-yellow: #eeb43e;
-  --color-accent-yellow-light: #f2c765;
+  /* Warn-/Start-Akzent (Amber) */
+  --color-accent-yellow: #fcd34d;
+  --color-accent-yellow-light: #fde68a;
 
   /* korrektes Feedback */
-  --color-answer-correct-border: #2f8f5b;
-  --color-answer-correct-bg: #e6f6ea;
-  --color-feedback-correct-text: #227244;
+  --color-answer-correct-border: var(--success);
+  --color-answer-correct-bg: #e8f8ee;
+  --color-feedback-correct-text: var(--success);
 
   /* falsches Feedback */
-  --color-answer-wrong-border: #c93f36;
-  --color-answer-wrong-bg: #fde7e2;
+  --color-answer-wrong-border: var(--danger);
+  --color-answer-wrong-bg: #fbeaea;
 
   /* Kategorie-Statusfarben */
-  --color-category-strong-bg: #bfe8ca;
-  --color-category-strong-text: #0f3a25;
-  --color-category-solid-bg: #ffe29a;
-  --color-category-solid-text: #593700;
-  --color-category-review-border: #e4a39a;
-  --color-category-review-bg: #f4c1b9;
-  --color-category-review-text: #651b16;
+  --color-category-strong-bg: #cff3dc;
+  --color-category-strong-text: #0f5c2e;
+  --color-category-solid-bg: #fdecc8;
+  --color-category-solid-text: #7a4a05;
+  --color-category-review-border: #e7a6a6;
+  --color-category-review-bg: #f7d6d6;
+  --color-category-review-text: #7a1f1f;
 
   /* dekorative Hero-Elemente */
-  --color-hero-decor-orange: rgba(224, 93, 63, 0.14);
-  --color-hero-decor-teal: rgba(24, 96, 91, 0.14);
-  --color-hero-decor-yellow: rgba(238, 180, 62, 0.2);
-  --color-hero-decor-dark: rgba(23, 34, 31, 0.12);
+  --color-hero-decor-orange: rgba(162, 28, 175, 0.16);
+  --color-hero-decor-teal: rgba(67, 56, 202, 0.16);
+  --color-hero-decor-yellow: rgba(180, 83, 9, 0.18);
+  --color-hero-decor-dark: rgba(30, 27, 51, 0.1);
 
   color: var(--color-text-primary);
   background: var(--color-bg-root);
@@ -100,59 +135,86 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-text-primary: #f2ede4;
-  --color-text-heading-warm: #ece5da;
+  --brand-primary: #a5b4fc;
+  --brand-primary-dark: #818cf8;
+  --brand-primary-soft: #4338ca;
+  --brand-accent: #f0abfc;
+  --brand-accent-strong: #e879f9;
+  --brand-accent-soft: #86198f;
+  --brand-secondary: #67e8f9;
+  --brand-secondary-soft: #155e75;
 
-  --color-text-secondary: #b9c4bc;
+  --surface: #201c3d;
+  --surface-elevated: #29244c;
+  --background: #14122a;
 
-  --color-text-muted: #8b9691;
-  --color-text-yellow-dark: #f0c987;
+  --text-primary: #f1effb;
+  --text-secondary: #c7c2e3;
+  --text-muted: #9691b8;
+  --text-on-accent: #241b36;
 
-  --color-text-on-accent: #fdf3e7;
+  --border: #362f5c;
 
-  --color-bg-root: #17140f;
-  --color-bg-grid-line: rgba(90, 200, 185, 0.07);
-  --color-bg-gradient-1: #1d1a16;
-  --color-bg-gradient-2: #16201d;
-  --color-bg-gradient-3: #1c1713;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
 
-  --color-surface-card: #262019;
+  --method-accent-violet: #c4b5fd;
+  --method-accent-blue: #93c5fd;
 
-  --color-surface-secondary: #221d18;
-  --color-surface-answer: #2a2420;
-  --color-surface-answer-hover: #332a20;
-  --color-surface-memory-hint: #241f1a;
-  --color-surface-memory-hint-hover: #2d2620;
-  --color-surface-teal-tint: #16302b;
-  --color-surface-teal-light: #15352f;
-  --color-surface-yellow-light: #3a2c10;
+  --color-text-primary: var(--text-primary);
+  --color-text-heading-warm: var(--text-primary);
 
-  --color-border-primary: #3c342a;
-  --color-border-secondary: #362f26;
-  --color-border-muted: #443b30;
-  --color-border-answer: #453a2c;
-  --color-border-teal-light: #3f7c72;
-  --color-border-yellow: #7a5a26;
+  --color-text-secondary: var(--text-secondary);
+
+  --color-text-muted: var(--text-muted);
+  --color-text-yellow-dark: var(--warning);
+
+  --color-text-on-accent: var(--text-on-accent);
+
+  --color-bg-root: var(--background);
+  --color-bg-grid-line: rgba(165, 180, 252, 0.07);
+  --color-bg-gradient-1: #17142e;
+  --color-bg-gradient-2: #1b1733;
+  --color-bg-gradient-3: #201a2e;
+
+  --color-surface-card: var(--surface);
+
+  --color-surface-secondary: #251f44;
+  --color-surface-answer: #241f42;
+  --color-surface-answer-hover: #2c2650;
+  --color-surface-memory-hint: #241d3e;
+  --color-surface-memory-hint-hover: #2b2348;
+  --color-surface-teal-tint: #16323a;
+  --color-surface-teal-light: #133840;
+  --color-surface-yellow-light: #3d2b08;
+
+  --color-border-primary: var(--border);
+  --color-border-secondary: #322b54;
+  --color-border-muted: #3a3260;
+  --color-border-answer: #362f5c;
+  --color-border-teal-light: #3e8a96;
+  --color-border-yellow: #8a661f;
 
   --shadow-hero: 0 18px 40px rgba(0, 0, 0, 0.45);
   --shadow-card: 0 18px 36px rgba(0, 0, 0, 0.4);
-  --shadow-answer-hover: 0 10px 22px rgba(255, 122, 82, 0.18);
+  --shadow-answer-hover: 0 10px 22px rgba(240, 171, 252, 0.16);
 
-  --color-accent-orange: #ff7a52;
-  --color-accent-orange-strong: #ff9573;
-  --color-accent-orange-darkest: #ffb199;
+  --color-accent-orange: var(--brand-accent);
+  --color-accent-orange-strong: var(--brand-accent-strong);
+  --color-accent-orange-darkest: #f5d0fe;
 
-  --color-accent-teal: #2ea89b;
-  --color-accent-teal-dark: #216f66;
+  --color-accent-teal: var(--brand-primary);
+  --color-accent-teal-dark: var(--brand-primary-dark);
 
   --color-accent-yellow: #e3ab45;
   --color-accent-yellow-light: #f0c669;
 
-  --color-answer-correct-border: #4caf7d;
+  --color-answer-correct-border: var(--success);
   --color-answer-correct-bg: #17301f;
   --color-feedback-correct-text: #6bcf95;
 
-  --color-answer-wrong-border: #e2685f;
+  --color-answer-wrong-border: var(--danger);
   --color-answer-wrong-bg: #3a1e1a;
 
   --color-category-strong-bg: #1d4a2c;
@@ -163,9 +225,9 @@
   --color-category-review-bg: #452420;
   --color-category-review-text: #f0a99c;
 
-  --color-hero-decor-orange: rgba(255, 122, 82, 0.18);
-  --color-hero-decor-teal: rgba(46, 168, 155, 0.18);
-  --color-hero-decor-yellow: rgba(227, 171, 69, 0.22);
+  --color-hero-decor-orange: rgba(240, 171, 252, 0.18);
+  --color-hero-decor-teal: rgba(165, 180, 252, 0.18);
+  --color-hero-decor-yellow: rgba(251, 191, 36, 0.2);
   --color-hero-decor-dark: rgba(255, 255, 255, 0.08);
 }
 
@@ -543,10 +605,40 @@ h1 {
 .primary-button,
 .secondary-button,
 .start-button,
-.import-button {
+.import-button,
+.ghost-button {
   border-radius: 8px;
   font-weight: 800;
   cursor: pointer;
+  min-height: 44px;
+}
+
+.primary-button,
+.secondary-button,
+.ghost-button,
+.start-button,
+.import-button,
+.answer-button,
+.view-switcher-button,
+.mode-switcher-button,
+.method-tile,
+.dashboard-tile,
+a {
+  outline-offset: 2px;
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.ghost-button:focus-visible,
+.start-button:focus-visible,
+.import-button:focus-visible,
+.answer-button:focus-visible,
+.view-switcher-button:focus-visible,
+.mode-switcher-button:focus-visible,
+.method-tile:focus-visible,
+.dashboard-tile:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--brand-primary);
 }
 
 .primary-button {
@@ -559,6 +651,26 @@ h1 {
 
 .primary-button:hover {
   background: var(--color-accent-orange-strong);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.ghost-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ghost-button {
+  border: 0;
+  padding: 10px 14px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ghost-button:hover {
+  color: var(--brand-accent);
 }
 
 .app-footer {
@@ -983,6 +1095,7 @@ h1 {
 
 .view-switcher {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 18px;
   padding: 4px;
@@ -1413,6 +1526,11 @@ h1 {
   .view-switcher {
     width: 100%;
     justify-content: center;
+    border-radius: 16px;
+  }
+
+  .view-switcher-button {
+    padding: 10px 14px;
   }
 
   .mode-switcher-button {
@@ -1433,5 +1551,241 @@ h1 {
 
   .matrix-corner {
     min-width: 90px;
+  }
+}
+
+/* ==========================================================================
+   Dashboard / Weiterlernen
+   ========================================================================== */
+
+.dashboard {
+  width: min(100%, 960px);
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.dashboard-header h1 {
+  font-size: clamp(1.7rem, 4vw, 2.4rem);
+}
+
+.continue-card {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 26px;
+  padding: 28px;
+  border-radius: 12px;
+  color: var(--text-on-accent);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 100%);
+  box-shadow: var(--shadow-hero);
+}
+
+.continue-card::after {
+  position: absolute;
+  right: -40px;
+  bottom: -60px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0%, transparent 70%);
+  content: "";
+}
+
+.continue-card .eyebrow {
+  color: var(--text-on-accent);
+  opacity: 0.85;
+}
+
+.continue-card h2 {
+  margin: 0 0 6px;
+  color: var(--text-on-accent);
+  font-size: 1.5rem;
+}
+
+.continue-subarea,
+.continue-position,
+.continue-mode,
+.continue-hint {
+  margin: 4px 0;
+  color: var(--text-on-accent);
+  opacity: 0.92;
+}
+
+.continue-hint {
+  max-width: 480px;
+  line-height: 1.5;
+}
+
+.continue-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.continue-button {
+  margin-top: 0;
+  color: var(--brand-primary);
+  background: var(--text-on-accent);
+}
+
+.continue-button:hover {
+  background: var(--color-surface-secondary);
+}
+
+.continue-actions .ghost-button {
+  color: var(--text-on-accent);
+  opacity: 0.85;
+}
+
+.continue-actions .ghost-button:hover {
+  opacity: 1;
+  color: var(--text-on-accent);
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.dashboard-tile {
+  text-align: left;
+  border: 1px solid var(--color-border-primary);
+  border-top: 4px solid var(--brand-primary);
+  border-radius: 10px;
+  padding: 20px;
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dashboard-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hero);
+}
+
+.dashboard-tile-icon {
+  font-size: 1.4rem;
+  color: var(--brand-primary);
+}
+
+.dashboard-tile-trainer {
+  border-top-color: var(--brand-accent);
+}
+
+.dashboard-tile-trainer .dashboard-tile-icon {
+  color: var(--brand-accent);
+}
+
+.dashboard-tile-exam {
+  border-top-color: var(--brand-secondary);
+}
+
+.dashboard-tile-exam .dashboard-tile-icon {
+  color: var(--brand-secondary);
+}
+
+.dashboard-tile h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.dashboard-tile p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.dashboard-tile-progress {
+  font-weight: 700;
+  color: var(--brand-primary);
+}
+
+.trainer-resume-card {
+  grid-column: 1 / -1;
+  margin-bottom: 4px;
+  padding: 18px 20px;
+  border-radius: 10px;
+  color: var(--text-on-accent);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 100%);
+  box-shadow: var(--shadow-card);
+}
+
+.trainer-resume-card .eyebrow {
+  color: var(--text-on-accent);
+  opacity: 0.85;
+}
+
+.trainer-resume-card p {
+  margin: 0 0 12px;
+  color: var(--text-on-accent);
+}
+
+.trainer-resume-card .primary-button {
+  margin-top: 0;
+  color: var(--brand-primary);
+  background: var(--text-on-accent);
+}
+
+.trainer-resume-card .primary-button:hover {
+  background: var(--color-surface-secondary);
+}
+
+/* ---- Methodentrainer: kleine eigene Akzentfarben je Methode ---- */
+
+.method-tile-duel {
+  border-top: 4px solid var(--brand-primary);
+}
+
+.method-tile-misconception {
+  border-top: 4px solid var(--brand-accent);
+}
+
+.method-tile-case {
+  border-top: 4px solid var(--brand-secondary);
+}
+
+.method-tile-assignment {
+  border-top: 4px solid var(--method-accent-violet);
+}
+
+.method-tile-matrix {
+  border-top: 4px solid var(--method-accent-blue);
+}
+
+.method-tile-mixedExam {
+  border-top: 4px solid var(--brand-accent-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .continue-card {
+    padding: 22px;
+  }
+
+  .continue-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .continue-actions .ghost-button {
+    text-align: center;
   }
 }

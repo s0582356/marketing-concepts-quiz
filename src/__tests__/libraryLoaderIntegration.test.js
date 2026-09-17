@@ -6,6 +6,13 @@ function findButtonByText(wrapper, text) {
   return wrapper.findAll('button').find((button) => button.text().trim() === text)
 }
 
+// Seit dem Dashboard-Umbau ist "Dashboard" der Startbildschirm - Quiz-Bereich
+// (.start-layout/.import-card) und Mixed-Exam-Startpunkt liegen hinter dem
+// Bereichs-Umschalter "Quiz".
+async function goToQuiz(wrapper) {
+  await findButtonByText(wrapper, 'Quiz').trigger('click')
+}
+
 function mcQuestion(overrides = {}) {
   return {
     question: 'Standardfrage?',
@@ -56,6 +63,7 @@ async function importLibraryFiles(wrapper, files) {
 // Der alte Einzelimporter (.import-card, "JSON auswählen") statt des
 // zentralen Multi-Loaders (.library-loader-card, "Lernbibliotheken laden").
 async function importSingleLegacyFile(wrapper, file) {
+  if (!wrapper.find('.import-card').exists()) await goToQuiz(wrapper)
   const input = wrapper.find('.import-card input[type="file"]')
   Object.defineProperty(input.element, 'files', { value: [file], configurable: true })
   await input.trigger('change')
@@ -165,6 +173,7 @@ describe('Quiz nutzt den zentralen privaten MC-Pool', () => {
       jsonFile('preis.json', [mcQuestion({ question: 'Q2' }), mcQuestion({ question: 'Q3' })]),
     ])
 
+    await goToQuiz(wrapper)
     await findButtonByText(wrapper, 'Mit aktueller Fragebank starten').trigger('click')
     expect(wrapper.find('.quiz-layout').exists()).toBe(true)
     expect(wrapper.text()).toContain('von 3')
@@ -368,6 +377,7 @@ describe('Datenschutz: zentrale Lernbibliotheken bleiben aus dem localStorage', 
       jsonFile('methodentrainer.json', [duelUnit({ prompt: 'Geheimer Prompt' })]),
     ])
 
+    await goToQuiz(wrapper)
     await findButtonByText(wrapper, 'Mit aktueller Fragebank starten').trigger('click')
     await wrapper.find('.answer-button').trigger('click')
 
@@ -392,7 +402,7 @@ describe('Datenschutz: zentrale Lernbibliotheken bleiben aus dem localStorage', 
 
     // Nur der bekannte, allowlisted Fortschrittsspeicher-Key wird beschrieben.
     const usedKeys = new Set(setItemSpy.mock.calls.map(([key]) => key))
-    expect(usedKeys).toEqual(new Set(['marketingQuizProgress:v1']))
+    expect(usedKeys).toEqual(new Set(['marketingLearningProgress:v2']))
 
     for (const [, value] of setItemSpy.mock.calls) {
       const parsed = JSON.parse(value)

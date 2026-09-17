@@ -15,9 +15,15 @@ afterEach(() => {
 })
 
 describe('bestehender Quizbereich (Regression)', () => {
-  it('startet standardmäßig im Quiz-Bereich und die Fragebank lässt sich starten und beantworten (Test 2, 16)', async () => {
+  it('startet standardmäßig im Dashboard, Quiz bleibt über den Bereichs-Umschalter erreichbar und beantwortbar (Test 2, 16)', async () => {
     const wrapper = mount(App)
 
+    // Seit dem Unified-Resume-/Dashboard-Umbau ist "Dashboard" der Startbildschirm,
+    // nicht mehr direkt der Quiz-Bereich - Quiz bleibt über den Umschalter erreichbar.
+    expect(wrapper.find('.dashboard').exists()).toBe(true)
+    expect(wrapper.find('.start-layout').exists()).toBe(false)
+
+    await findButtonByText(wrapper, 'Quiz').trigger('click')
     expect(wrapper.find('.start-layout').exists()).toBe(true)
     // Bestehender privater Import bleibt unverändert vorhanden.
     expect(wrapper.find('.import-card').exists()).toBe(true)

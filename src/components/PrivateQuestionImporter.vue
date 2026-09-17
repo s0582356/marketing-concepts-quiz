@@ -5,7 +5,6 @@ import { validateMcQuestions } from '../utils/mcQuestionValidator.js'
 
 const emit = defineEmits(['questions-loaded'])
 const fileInput = ref(null)
-let requestedFingerprint = null
 
 const handleFileChange = async (event) => {
   const file = event.target.files?.[0]
@@ -23,7 +22,6 @@ const handleFileChange = async (event) => {
       questions: validatedQuestions,
       fileName: file.name,
       fingerprint,
-      requestedFingerprint,
     })
 
     event.target.value = ''
@@ -31,16 +29,11 @@ const handleFileChange = async (event) => {
     alert(`Import fehlgeschlagen: ${error.message}`)
     event.target.value = ''
   }
-
-  requestedFingerprint = null
 }
 
-function openFilePicker(fingerprint = null) {
-  requestedFingerprint = fingerprint
+function openFilePicker() {
   fileInput.value?.click()
 }
-
-defineExpose({ openFilePicker })
 </script>
 
 <template>

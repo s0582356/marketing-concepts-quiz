@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import AssignmentTrainer from './AssignmentTrainer.vue'
 import MatrixTrainer from './MatrixTrainer.vue'
 import McResolverCard from './McResolverCard.vue'
@@ -10,6 +10,7 @@ import TrainingCompass from './TrainingCompass.vue'
 import TrainingUnitCard from './TrainingUnitCard.vue'
 import TrainingUnitImporter from './TrainingUnitImporter.vue'
 import { resolveMcQuestion, unitsForMethods, validateTrainingUnits } from './trainingUnits.js'
+import { deleteMethodTrainerProgress, getMethodTrainerProgress, saveMethodTrainerProgress } from '../utils/learningProgress.js'
 import sampleTrainingUnits from '../data/public/sampleTrainingUnits.json'
 
 const props = defineProps({
@@ -26,7 +27,32 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  // Kombi-Fingerprint der aktuell geladenen Trainingseinheiten-Banken (App.vue,
+  // combinedTrainingFingerprint) - Resume-Schlüssel für den Methodentrainer.
+  // Bleibt null, solange keine private Bank geladen ist (Demo-Daten werden
+  // bewusst nie persistiert, siehe learningProgress.js).
+  trainerBankFingerprint: {
+    type: String,
+    default: null,
+  },
+  // Kombi-Fingerprint der aktuell geladenen MC-Fragenbanken (App.vue,
+  // combinedMcFingerprint, identisch mit dem Quiz-Fingerprint) - Resume-
+  // Schlüssel für das Mixed Transfer Exam, das denselben MC-Pool nutzt.
+  mcSetFingerprint: {
+    type: String,
+    default: null,
+  },
+  // Von App.vue gesetzt, wenn über das Dashboard "Weiterlernen" für diesen
+  // Bereich (methodTrainer oder mixedExam) angefordert wurde. Jede neue Anfrage
+  // trägt eine eigene `nonce`, damit derselbe Bereich auch wiederholt angefragt
+  // werden kann (Objektidentität statt Wertevergleich als Trigger).
+  resumeRequest: {
+    type: Object,
+    default: null,
+  },
 })
+
+const emit = defineEmits(['learning-location', 'learning-location-cleared'])
 
 // Öffentliche Demo-Einheiten laufen durch dieselbe Validierung wie private Importe.
 const demoUnits = validateTrainingUnits(sampleTrainingUnits)
@@ -88,6 +114,23 @@ const activeMethod = ref(null)
 const sessionIndex = ref(0)
 const sessionCompleted = ref(0)
 const sessionCorrect = ref(0)
+const completedUnitIds = ref([])
+const mixedExamRef = ref(null)
+
+// Resume-Checkpoint für den Methodentrainer - nur vorhanden, wenn eine private
+// Trainingseinheiten-Bank geladen ist (Demo-Sitzungen werden nie persistiert,
+// siehe Datenschutz-Regressionstest in App.test.js).
+const methodTrainerCheckpoint = ref(null)
+function refreshMethodTrainerCheckpoint() {
+  methodTrainerCheckpoint.value = props.trainerBankFingerprint ? getMethodTrainerProgress(props.trainerBankFingerprint) : null
+}
+watch(() => props.trainerBankFingerprint, refreshMethodTrainerCheckpoint, { immediate: true })
+
+const resumableUnitLabel = computed(() => {
+  const checkpoint = methodTrainerCheckpoint.value
+  if (!checkpoint) return null
+  return METHOD_DEFINITIONS.find((m) => m.dataMethods.includes(checkpoint.method))?.label ?? null
+})
 
 // Steuert, ob gerade eine Trainingseinheit oder - dazwischengeschaltet - deren
 // aufgelöste MC-Abschlussfrage angezeigt wird.
@@ -125,14 +168,81 @@ const trainerComponent = computed(() => {
   }
 })
 
+// Persistiert ausschließlich technische Metadaten (Methode, TrainingUnit-ID,
+// Modus, Position, Zähler) - nie den Inhalt der aktuellen Einheit. Greift nur,
+// wenn eine private Trainingseinheiten-Bank geladen ist.
+function persistMethodTrainerProgress() {
+  if (!props.trainerBankFingerprint || !currentUnit.value) return
+  saveMethodTrainerProgress(props.trainerBankFingerprint, {
+    method: currentUnit.value.method,
+    unitId: currentUnit.value.id,
+    mode: mode.value,
+    sessionIndex: sessionIndex.value,
+    sessionCompleted: sessionCompleted.value,
+    sessionCorrect: sessionCorrect.value,
+    completedUnitIds: completedUnitIds.value,
+    lastAccessedAt: new Date().toISOString(),
+  })
+  refreshMethodTrainerCheckpoint()
+  const tile = METHOD_DEFINITIONS.find((m) => m.key === activeMethod.value)
+  emit('learning-location', {
+    area: 'methodTrainer',
+    setFingerprint: props.trainerBankFingerprint,
+    subArea: tile?.key ?? null,
+    itemId: currentUnit.value.id,
+    position: sessionIndex.value + 1,
+    total: currentUnits.value.length,
+    mode: mode.value,
+  })
+}
+
 function startMethod(methodKey) {
   activeMethod.value = methodKey
   sessionIndex.value = 0
   sessionCompleted.value = 0
   sessionCorrect.value = 0
+  completedUnitIds.value = []
+  sessionStage.value = 'unit'
+  resolvedMcQuestion.value = null
+  persistMethodTrainerProgress()
+}
+
+// Setzt eine zuvor gespeicherte Methodentrainer-Sitzung fort: springt direkt zur
+// gemerkten Methode/Unit-ID/Modus/Position statt zur Methodenübersicht. Findet
+// sich die Unit-ID nicht mehr im aktuellen Bestand (z. B. andere Bank geladen),
+// wird kein falscher Zustand erzeugt - stattdessen bei Aufgabe 1 begonnen.
+function resumeFromCheckpoint() {
+  const checkpoint = methodTrainerCheckpoint.value
+  if (!checkpoint) return
+  const tile = METHOD_DEFINITIONS.find((m) => m.dataMethods.includes(checkpoint.method))
+  if (!tile) return
+  activeMethod.value = tile.key
+  mode.value = checkpoint.mode
+  const units = unitsFor(tile.key)
+  const unitIndex = units.findIndex((unit) => unit.id === checkpoint.unitId)
+  sessionIndex.value = unitIndex >= 0 ? unitIndex : 0
+  sessionCompleted.value = checkpoint.sessionCompleted
+  sessionCorrect.value = checkpoint.sessionCorrect
+  completedUnitIds.value = checkpoint.completedUnitIds
   sessionStage.value = 'unit'
   resolvedMcQuestion.value = null
 }
+
+watch(
+  () => props.resumeRequest,
+  async (request) => {
+    if (!request) return
+    await nextTick()
+    if (request.area === 'methodTrainer') {
+      resumeFromCheckpoint()
+    } else if (request.area === 'mixedExam') {
+      activeMethod.value = 'mixedExam'
+      await nextTick()
+      mixedExamRef.value?.resumeExam()
+    }
+  },
+  { immediate: true },
+)
 
 function backToOverview() {
   activeMethod.value = null
@@ -148,6 +258,10 @@ function handleModeChange(newMode) {
 function handleCompleted({ correct }) {
   sessionCompleted.value++
   if (correct) sessionCorrect.value++
+  if (currentUnit.value && !completedUnitIds.value.includes(currentUnit.value.id)) {
+    completedUnitIds.value = [...completedUnitIds.value, currentUnit.value.id]
+  }
+  persistMethodTrainerProgress()
 }
 
 // Zentraler MC-Abschluss-Resolver: wird nur hier ausgewertet, die einzelnen
@@ -168,10 +282,26 @@ function handleAdvance() {
   goToNextUnit()
 }
 
+// Räumt Checkpoint und globalen Zeiger auf, wenn eine Methodentrainer-Sitzung
+// vollständig durchgespielt wurde - eine abgeschlossene Sitzung ist nicht mehr
+// "laufend" und darf beim nächsten Öffnen nicht mehr die zuletzt gesehene Unit
+// erneut anbieten (Codex Delta Review, Finding M-3; analog zu Mixed Exam).
+function completeMethodTrainerSession() {
+  if (!props.trainerBankFingerprint) return
+  deleteMethodTrainerProgress(props.trainerBankFingerprint)
+  refreshMethodTrainerCheckpoint()
+  emit('learning-location-cleared', { area: 'methodTrainer', setFingerprint: props.trainerBankFingerprint })
+}
+
 function goToNextUnit() {
   sessionIndex.value++
   sessionStage.value = 'unit'
   resolvedMcQuestion.value = null
+  if (isSessionComplete.value) {
+    completeMethodTrainerSession()
+  } else {
+    persistMethodTrainerProgress()
+  }
 }
 
 function onUnitsLoaded({ units, fileName }) {
@@ -187,6 +317,8 @@ function handleOpenMethodFromExam(dataMethod) {
   const tile = METHOD_DEFINITIONS.find((m) => m.dataMethods.includes(dataMethod))
   if (tile) startMethod(tile.key)
 }
+
+defineExpose({ resumeFromCheckpoint })
 </script>
 
 <template>
@@ -212,12 +344,18 @@ function handleOpenMethodFromExam(dataMethod) {
     </p>
 
     <section v-if="!activeMethod" class="method-picker" aria-label="Trainingsmethode wählen">
+      <section v-if="methodTrainerCheckpoint" class="trainer-resume-card" aria-label="Methodentrainer fortsetzen">
+        <p class="eyebrow">Weiterlernen</p>
+        <p>{{ resumableUnitLabel }} · Aufgabe {{ methodTrainerCheckpoint.sessionIndex + 1 }}</p>
+        <button class="primary-button" type="button" @click="resumeFromCheckpoint">Weiterlernen</button>
+      </section>
+
       <button
         v-for="methodDef in METHOD_DEFINITIONS"
         :key="methodDef.key"
         type="button"
         class="method-tile"
-        :class="{ 'method-tile-disabled': !methodDef.available }"
+        :class="[`method-tile-${methodDef.key}`, { 'method-tile-disabled': !methodDef.available }]"
         :disabled="!methodDef.available"
         @click="startMethod(methodDef.key)"
       >
@@ -235,10 +373,14 @@ function handleOpenMethodFromExam(dataMethod) {
 
     <MixedExam
       v-else-if="activeMethod === 'mixedExam'"
+      ref="mixedExamRef"
       :mc-questions="mcQuestions"
       :all-units="allUnits"
+      :set-fingerprint="mcSetFingerprint"
       @back="backToOverview"
       @open-method="handleOpenMethodFromExam"
+      @learning-location="emit('learning-location', $event)"
+      @learning-location-cleared="emit('learning-location-cleared', $event)"
     />
 
     <section v-else-if="currentUnit && sessionStage === 'unit'" class="quiz-layout">

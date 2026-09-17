@@ -215,3 +215,43 @@ describe('Gemeinsamer Pool aus mehreren Banken', () => {
     expect(fingerprintAgain).toBe(fingerprint)
   })
 })
+
+describe('Merge-Reihenfolge ist dateinamenunabhängig (Codex Delta Review M-1)', () => {
+  // Reproduktion: derselbe Bank-Inhalt (gleiche Fingerprints) wird einmal mit
+  // Dateinamen importiert, die eine bestimmte Sortierung ergeben, und beim
+  // Reimport unter Namen, die eine dateinamenbasierte Sortierung UMKEHREN
+  // würden. Da der Library-Set-Fingerprint nur von den (sortierten) Content-
+  // Fingerprints abhängt, bleibt er in beiden Fällen identisch - der Resume-
+  // Mechanismus akzeptiert also denselben Set-Fingerprint als Match. Wenn die
+  // Merge-Reihenfolge dabei trotzdem kippt, zeigen gespeicherte technische
+  // Indizes danach auf andere Fragen als ursprünglich gespeichert.
+  it('MC-Pool: identischer Fingerprint-Satz ergibt dieselbe Reihenfolge, unabhängig davon, wie die Dateien heißen', () => {
+    const original = {
+      fpA: { fileName: 'basics.json', fingerprint: 'fpA', questions: [mcQuestion({ question: 'FromA' })] },
+      fpB: { fileName: 'preis.json', fingerprint: 'fpB', questions: [mcQuestion({ question: 'FromB' })] },
+    }
+    // Gleicher Inhalt (gleiche Fingerprints fpA/fpB), aber Dateinamen bewusst so
+    // gewählt, dass eine alphabetische Dateinamensortierung die Bankreihenfolge kippt.
+    const renamed = {
+      fpA: { fileName: 'zzz_renamed.json', fingerprint: 'fpA', questions: [mcQuestion({ question: 'FromA' })] },
+      fpB: { fileName: 'aaa_renamed.json', fingerprint: 'fpB', questions: [mcQuestion({ question: 'FromB' })] },
+    }
+    const mergedOriginal = mergeMcQuestions(original).map((q) => q.question)
+    const mergedRenamed = mergeMcQuestions(renamed).map((q) => q.question)
+    expect(mergedRenamed).toEqual(mergedOriginal)
+  })
+
+  it('Trainingseinheiten-Pool: identischer Fingerprint-Satz ergibt dieselbe Reihenfolge, unabhängig vom Dateinamen', () => {
+    const original = {
+      fpA: { fileName: 'methoden_a.json', fingerprint: 'fpA', units: [trainingUnit({ id: 'unit-a' })] },
+      fpB: { fileName: 'methoden_b.json', fingerprint: 'fpB', units: [trainingUnit({ id: 'unit-b' })] },
+    }
+    const renamed = {
+      fpA: { fileName: 'zzz_renamed.json', fingerprint: 'fpA', units: [trainingUnit({ id: 'unit-a' })] },
+      fpB: { fileName: 'aaa_renamed.json', fingerprint: 'fpB', units: [trainingUnit({ id: 'unit-b' })] },
+    }
+    const mergedOriginal = mergeTrainingUnits(original).map((u) => u.id)
+    const mergedRenamed = mergeTrainingUnits(renamed).map((u) => u.id)
+    expect(mergedRenamed).toEqual(mergedOriginal)
+  })
+})

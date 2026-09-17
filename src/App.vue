@@ -1,20 +1,27 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import QuizCard from './components/QuizCard.vue'
 import ScoreBox from './components/ScoreBox.vue'
 import PrivateQuestionImporter from './components/PrivateQuestionImporter.vue'
 import LibraryLoader from './components/LibraryLoader.vue'
+import HomeDashboard from './components/HomeDashboard.vue'
 import MethodTrainerApp from './methodtrainer/MethodTrainerApp.vue'
 import sampleQuestions from './data/public/sampleQuestions.json'
+import sampleTrainingUnits from './data/public/sampleTrainingUnits.json'
 import {
-  deleteBankProgress,
-  getBankProgress,
-  listBankProgress,
-  saveBankProgress,
-} from './utils/progressStorage.js'
+  clearLastLearningLocationIfArea,
+  deleteMethodTrainerProgress,
+  deleteMixedExamProgress,
+  deleteQuizProgress,
+  getLastLearningLocation,
+  getQuizProgress,
+  saveQuizProgress,
+  setLastLearningLocation,
+} from './utils/learningProgress.js'
 import {
   addLibraryBanks,
   combinedMcFingerprint,
+  combinedTrainingFingerprint,
   mergeMcQuestions,
   mergeTrainingUnits,
 } from './utils/libraryImport.js'
@@ -33,7 +40,8 @@ function applyTheme(themeValue) {
   if (typeof document !== 'undefined') document.documentElement.setAttribute('data-theme', themeValue)
 }
 
-const currentView = ref('quiz')
+// 'home' (Dashboard/Weiterlernen) | 'quiz' | 'trainer' (Methodentrainer inkl. Mixed Exam)
+const currentView = ref('home')
 
 const theme = ref(getInitialTheme())
 applyTheme(theme.value)
@@ -52,9 +60,8 @@ const originalQuestions = ref(sampleQuestions)
 const questionBankName = ref('Öffentliche Beispiel-Fragen')
 const privateBankFileName = ref(null)
 const activeFingerprint = ref(null)
-const importer = ref(null)
-const savedProgressEntries = ref(listBankProgress())
 const resumeError = ref('')
+const libraryLoaderRef = ref(null)
 const runQuestionIndices = ref([])
 const optionOrders = ref([])
 const selectedOptionIndices = ref([])
@@ -94,6 +101,123 @@ const knownLibraryFingerprints = computed(() => new Set([
   ...Object.keys(mcLibraryBanks.value),
   ...Object.keys(trainingUnitLibraryBanks.value),
 ]))
+
+// Kombi-Fingerprint der Trainingseinheiten-Banken - eigene, von der MC-Bank-
+// Identität unabhängige technische Identität für den Methodentrainer-Resume.
+// Bleibt null, solange keine private Trainingsbank geladen ist (die öffentliche
+// Demo-Bank besitzt bewusst keinen Fingerprint - siehe learningProgress.js).
+const trainingLibraryFingerprint = ref(null)
+watch(trainingUnitLibraryBanks, async (banks) => {
+  trainingLibraryFingerprint.value = Object.keys(banks).length > 0 ? await combinedTrainingFingerprint(banks) : null
+}, { immediate: true })
+
+// ---- Unified Resume: zentraler letzter Lernort + Quiz-Checkpoint --------
+
+const lastLearningLocation = ref(getLastLearningLocation())
+function refreshLastLearningLocation() {
+  lastLearningLocation.value = getLastLearningLocation()
+}
+function handleLearningLocation(payload) {
+  setLastLearningLocation(payload)
+  refreshLastLearningLocation()
+}
+// Wird ausgelöst, wenn ein Bereich (Mixed Exam oder Methodentrainer) seine
+// eigene Sitzung fachlich abgeschlossen und ihren Checkpoint bereits gelöscht
+// hat - räumt den globalen Zeiger nur dann mit, wenn er exakt auf diesen
+// Bereich/Fingerprint zeigt (Codex Delta Review, Findings M-2/M-3).
+function handleLearningLocationCleared({ area, setFingerprint }) {
+  clearLastLearningLocationIfArea(area, setFingerprint)
+  refreshLastLearningLocation()
+}
+
+const quizCheckpoint = ref(null)
+function refreshQuizCheckpoint() {
+  quizCheckpoint.value = activeFingerprint.value ? getQuizProgress(activeFingerprint.value) : null
+}
+
+const AREA_LABELS = { quiz: 'Quiz', methodTrainer: 'Methodentrainer', mixedExam: 'Mixed Transfer Exam' }
+// Rein app-definierte, technische Anzeigenamen der Methodentrainer-Kacheln -
+// keine aus privaten Trainingsdaten abgeleiteten Inhalte (siehe PRIVACY-Teil
+// des Abschlussberichts).
+const METHOD_SUBAREA_LABELS = {
+  duel: 'Abgrenzungsduell',
+  misconception: 'Fehlerdetektiv',
+  case: 'Fall-Entscheider',
+  assignment: 'Drag-&-Drop-Strukturtrainer',
+  matrix: 'Matrix-/Prozess-Trainer',
+}
+
+const dashboardAreaLabel = computed(() => (lastLearningLocation.value ? AREA_LABELS[lastLearningLocation.value.area] : ''))
+const dashboardSubAreaLabel = computed(() => {
+  const location = lastLearningLocation.value
+  if (!location || location.area !== 'methodTrainer' || !location.subArea) return null
+  return METHOD_SUBAREA_LABELS[location.subArea] ?? null
+})
+// Prüft, ob die aktuell geladenen Lernbibliotheken zum Fingerprint des
+// gespeicherten letzten Lernorts passen - ohne das, keine "Weiterlernen"-
+// Freigabe, sondern die Aufforderung, zuerst die Bibliotheken zu laden.
+const isResumeReady = computed(() => {
+  const location = lastLearningLocation.value
+  if (!location) return false
+  if (location.area === 'methodTrainer') return location.setFingerprint === trainingLibraryFingerprint.value
+  return location.setFingerprint === activeFingerprint.value
+})
+
+const quizProgressSummary = computed(() => {
+  if (!quizCheckpoint.value) return null
+  const answered = quizCheckpoint.value.selectedOptionIndices.filter((value) => value !== null).length
+  return { answered, total: quizCheckpoint.value.runQuestionIndices.length }
+})
+
+const trainerResumeRequest = ref(null)
+// Ein Resume-Request ist eine einmalige Anweisung ("springe jetzt genau
+// dorthin"), kein dauerhafter Zustand. MethodTrainerApp wertet ihn per
+// `watch(..., { immediate: true })` aus, das bei jedem Neu-Mounten erneut
+// feuert - ohne dieses Zurücksetzen würde ein regulärer, späterer Wechsel auf
+// den Reiter "Methodentrainer" denselben alten Request immer wieder anwenden,
+// statt die normale Methodenübersicht zu zeigen (realer Fund aus dem
+// Private-Data-Realtest, nicht Teil des ursprünglichen Codex-Berichts).
+watch(currentView, (view) => {
+  if (view !== 'trainer') trainerResumeRequest.value = null
+})
+
+function continueLearning() {
+  const location = lastLearningLocation.value
+  if (!location) {
+    currentView.value = 'quiz'
+    return
+  }
+  if (location.area === 'quiz') {
+    currentView.value = 'quiz'
+    resumeQuizFromCheckpoint()
+  } else {
+    currentView.value = 'trainer'
+    trainerResumeRequest.value = { area: location.area, nonce: Date.now() }
+  }
+}
+
+function handleLoadLibrariesForResume() {
+  libraryLoaderRef.value?.openFilePicker()
+}
+
+function handleDiscardContinue() {
+  const location = lastLearningLocation.value
+  if (!location) return
+  if (location.area === 'quiz') deleteQuizProgress(location.setFingerprint)
+  else if (location.area === 'methodTrainer') deleteMethodTrainerProgress(location.setFingerprint)
+  else if (location.area === 'mixedExam') deleteMixedExamProgress(location.setFingerprint)
+  clearLastLearningLocationIfArea(location.area, location.setFingerprint)
+  refreshLastLearningLocation()
+  refreshQuizCheckpoint()
+}
+
+function discardQuizCheckpoint() {
+  if (!activeFingerprint.value) return
+  deleteQuizProgress(activeFingerprint.value)
+  clearLastLearningLocationIfArea('quiz', activeFingerprint.value)
+  refreshQuizCheckpoint()
+  refreshLastLearningLocation()
+}
 
 const totalQuestions = computed(() => questions.value.length)
 const wrongAnswerCount = computed(() => totalQuestions.value - score.value)
@@ -169,13 +293,9 @@ function resetQuizProgress({ clearIncorrectAnswers = true } = {}) {
   if (clearIncorrectAnswers) incorrectlyAnsweredQuestions.value = []
 }
 
-function refreshSavedProgress() {
-  savedProgressEntries.value = listBankProgress()
-}
-
 function savePrivateProgress() {
   if (!activeFingerprint.value || !privateBankFileName.value || runQuestionIndices.value.length === 0) return
-  saveBankProgress(activeFingerprint.value, {
+  saveQuizProgress(activeFingerprint.value, {
     bankFileName: privateBankFileName.value,
     questionCount: originalQuestions.value.length,
     runQuestionIndices: runQuestionIndices.value,
@@ -189,7 +309,17 @@ function savePrivateProgress() {
     isReviewMode: isReviewMode.value,
     lastSavedAt: new Date().toISOString(),
   })
-  refreshSavedProgress()
+  refreshQuizCheckpoint()
+  setLastLearningLocation({
+    area: 'quiz',
+    setFingerprint: activeFingerprint.value,
+    subArea: null,
+    itemId: null,
+    position: currentQuestionIndex.value + 1,
+    total: runQuestionIndices.value.length,
+    mode: isReviewMode.value ? 'review' : 'normal',
+  })
+  refreshLastLearningLocation()
 }
 
 function startQuiz() {
@@ -264,7 +394,7 @@ function showQuestionBankSelection() {
   isReviewMode.value = false
   isQuizStarted.value = false
   resetQuizProgress()
-  refreshSavedProgress()
+  refreshQuizCheckpoint()
 }
 
 function validRestoredRun(progress, importedQuestions) {
@@ -277,15 +407,17 @@ function validRestoredRun(progress, importedQuestions) {
     && progress.selectedOptionIndices.every((index, runIndex) => index === null || index < importedQuestions[progress.runQuestionIndices[runIndex]].options.length)
 }
 
-function restorePrivateProgress(importedQuestions, fileName, fingerprint, progress) {
-  if (!validRestoredRun(progress, importedQuestions)) {
-    resumeError.value = 'Der gespeicherte Lernstand ist mit dieser Datei nicht kompatibel.'
+// Setzt eine gespeicherte Quiz-Sitzung fort: die aktive MC-Bibliothek ist zu
+// diesem Zeitpunkt bereits geladen (Fingerprint-Match ist Voraussetzung dafür,
+// dass quizCheckpoint überhaupt existiert) - kein erneuter Dateiauswahl-Dialog
+// nötig, nur eine bewusste Nutzeraktion ("Weiterlernen").
+function resumeQuizFromCheckpoint() {
+  const progress = quizCheckpoint.value
+  if (!progress) return
+  if (!validRestoredRun(progress, originalQuestions.value)) {
+    resumeError.value = 'Diese Lernbibliotheken passen nicht zur gespeicherten Sitzung.'
     return
   }
-  originalQuestions.value = importedQuestions
-  privateBankFileName.value = fileName
-  activeFingerprint.value = fingerprint
-  questionBankName.value = `Eigene Fragebank: ${fileName}`
   buildRun(progress.runQuestionIndices, progress.optionOrders)
   selectedOptionIndices.value = progress.selectedOptionIndices.map((index) => index)
   currentQuestionIndex.value = progress.currentIndex
@@ -298,7 +430,7 @@ function restorePrivateProgress(importedQuestions, fileName, fingerprint, progre
   incorrectlyAnsweredQuestions.value = []
   progress.selectedOptionIndices.forEach((optionIndex, runIndex) => {
     if (optionIndex === null) return
-    const originalQuestion = importedQuestions[progress.runQuestionIndices[runIndex]]
+    const originalQuestion = originalQuestions.value[progress.runQuestionIndices[runIndex]]
     const isCorrect = originalQuestion.options[optionIndex] === originalQuestion.correctAnswer
     answeredQuestions.value.push({ key: getQuestionKey(originalQuestion), category: originalQuestion.category || 'Allgemein', isCorrect })
     if (!isCorrect && !incorrectlyAnsweredQuestions.value.some((question) => getQuestionKey(question) === getQuestionKey(originalQuestion))) {
@@ -306,7 +438,7 @@ function restorePrivateProgress(importedQuestions, fileName, fingerprint, progre
     }
   })
   const currentSelection = progress.selectedOptionIndices[progress.currentIndex]
-  selectedAnswer.value = currentSelection === null ? null : importedQuestions[progress.runQuestionIndices[progress.currentIndex]].options[currentSelection]
+  selectedAnswer.value = currentSelection === null ? null : originalQuestions.value[progress.runQuestionIndices[progress.currentIndex]].options[currentSelection]
   isAnswered.value = currentSelection !== null
   isQuizStarted.value = true
   resumeError.value = ''
@@ -327,25 +459,11 @@ async function activateMcLibraryPool() {
   isQuizStarted.value = false
   resumeError.value = ''
   resetQuizProgress()
+  refreshQuizCheckpoint()
 }
 
-async function loadPrivateQuestions({ questions: importedQuestions, fileName, fingerprint, requestedFingerprint }) {
-  if (requestedFingerprint) {
-    if (fingerprint !== requestedFingerprint) {
-      resumeError.value = 'Diese Datei gehört nicht zu diesem gespeicherten Lernstand.'
-      return
-    }
-    const progress = getBankProgress(requestedFingerprint)
-    if (!progress) {
-      resumeError.value = 'Dieser gespeicherte Lernstand ist nicht mehr verfügbar.'
-      refreshSavedProgress()
-      return
-    }
-    restorePrivateProgress(importedQuestions, fileName, fingerprint, progress)
-    return
-  }
-  // Frischer (Nicht-Resume-)Einzelimport über den alten PrivateQuestionImporter:
-  // läuft über dieselbe zentrale Registry-Pipeline wie der Multi-Loader, statt
+async function loadPrivateQuestions({ questions: importedQuestions, fileName, fingerprint }) {
+  // Läuft über dieselbe zentrale Registry-Pipeline wie der Multi-Loader, statt
   // originalQuestions direkt und ohne Registry-Update zu ersetzen (Codex
   // MAJOR_FIX: entkoppelter Legacy-Importer). Registry, Statusanzeige, Quiz,
   // Mixed Exam und Resolver haben danach garantiert denselben aktiven Pool.
@@ -362,21 +480,6 @@ async function handleLibraryLoaded(result) {
   if (result.trainingUnitBanks.length) trainingUnitLibraryBanks.value = addLibraryBanks(trainingUnitLibraryBanks.value, result.trainingUnitBanks)
 
   if (result.mcBanks.length) await activateMcLibraryPool()
-}
-
-function requestResume(fingerprint) {
-  resumeError.value = ''
-  importer.value?.openFilePicker(fingerprint)
-}
-
-function removeSavedProgress(fingerprint) {
-  deleteBankProgress(fingerprint)
-  refreshSavedProgress()
-  resumeError.value = ''
-}
-
-function formatSavedAt(value) {
-  return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 </script>
 
@@ -407,6 +510,16 @@ function formatSavedAt(value) {
           type="button"
           role="tab"
           class="view-switcher-button"
+          :class="{ 'view-switcher-active': currentView === 'home' }"
+          :aria-selected="currentView === 'home'"
+          @click="currentView = 'home'"
+        >
+          Dashboard
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="view-switcher-button"
           :class="{ 'view-switcher-active': currentView === 'quiz' }"
           :aria-selected="currentView === 'quiz'"
           @click="currentView = 'quiz'"
@@ -427,6 +540,7 @@ function formatSavedAt(value) {
     </section>
 
     <LibraryLoader
+      ref="libraryLoaderRef"
       :mc-bank-count="Object.keys(mcLibraryBanks).length"
       :mc-question-count="libraryMcQuestions.length"
       :training-unit-bank-count="Object.keys(trainingUnitLibraryBanks).length"
@@ -436,29 +550,39 @@ function formatSavedAt(value) {
       @library-loaded="handleLibraryLoaded"
     />
 
-    <template v-if="currentView === 'quiz'">
-    <section v-if="!isQuizStarted" class="start-layout" aria-label="Quiz vorbereiten">
-      <PrivateQuestionImporter ref="importer" @questions-loaded="loadPrivateQuestions" />
+    <HomeDashboard
+      v-if="currentView === 'home'"
+      :last-learning-location="lastLearningLocation"
+      :is-resume-ready="isResumeReady"
+      :area-label="dashboardAreaLabel"
+      :sub-area-label="dashboardSubAreaLabel"
+      :mc-question-count="libraryMcQuestions.length > 0 ? libraryMcQuestions.length : sampleQuestions.length"
+      :has-private-mc-library="Object.keys(mcLibraryBanks).length > 0"
+      :quiz-answered="quizProgressSummary ? quizProgressSummary.answered : null"
+      :quiz-total="quizProgressSummary ? quizProgressSummary.total : null"
+      :training-unit-count="libraryTrainingUnits.length > 0 ? libraryTrainingUnits.length : sampleTrainingUnits.length"
+      @continue="continueLearning"
+      @load-libraries="handleLoadLibrariesForResume"
+      @discard-continue="handleDiscardContinue"
+      @open-quiz="currentView = 'quiz'"
+      @open-trainer="currentView = 'trainer'"
+      @open-mixed-exam="currentView = 'trainer'"
+    />
 
-      <section v-if="savedProgressEntries.length > 0" class="saved-progress-card" aria-label="Gespeicherte Lernstände">
-        <h2>Gespeicherte Lernstände</h2>
-        <p class="saved-progress-note">Zum Fortsetzen wählst du die private JSON-Datei erneut aus.</p>
+    <template v-else-if="currentView === 'quiz'">
+    <section v-if="!isQuizStarted" class="start-layout" aria-label="Quiz vorbereiten">
+      <PrivateQuestionImporter @questions-loaded="loadPrivateQuestions" />
+
+      <section v-if="quizCheckpoint" class="saved-progress-card" aria-label="Quiz fortsetzen">
+        <h2>Weiterlernen</h2>
         <p v-if="resumeError" class="resume-error" role="alert">{{ resumeError }}</p>
-        <div class="saved-progress-list">
-          <article v-for="entry in savedProgressEntries" :key="entry.fingerprint" class="saved-progress-entry">
-            <div>
-              <h3>{{ entry.progress.bankFileName }}</h3>
-              <p>
-                Position {{ entry.progress.currentIndex + 1 }} / {{ entry.progress.runQuestionIndices.length }}
-                · {{ entry.progress.isQuizComplete ? 'abgeschlossen' : 'laufend' }}
-              </p>
-              <time :datetime="entry.progress.lastSavedAt">Zuletzt gespeichert: {{ formatSavedAt(entry.progress.lastSavedAt) }}</time>
-            </div>
-            <div class="saved-progress-actions">
-              <button class="primary-button" type="button" @click="requestResume(entry.fingerprint)">Fortsetzen</button>
-              <button class="secondary-button" type="button" @click="removeSavedProgress(entry.fingerprint)">Löschen</button>
-            </div>
-          </article>
+        <p class="saved-progress-note">
+          {{ quizCheckpoint.bankFileName }} · Frage {{ quizCheckpoint.currentIndex + 1 }} von {{ quizCheckpoint.runQuestionIndices.length }}
+          <template v-if="quizCheckpoint.isQuizComplete"> · abgeschlossen</template>
+        </p>
+        <div class="saved-progress-actions">
+          <button class="primary-button" type="button" @click="resumeQuizFromCheckpoint">Weiterlernen</button>
+          <button class="secondary-button" type="button" @click="discardQuizCheckpoint">Fortschritt verwerfen</button>
         </div>
       </section>
 
@@ -576,10 +700,15 @@ function formatSavedAt(value) {
       v-else
       :mc-questions="originalQuestions"
       :library-training-units="libraryTrainingUnits"
+      :trainer-bank-fingerprint="trainingLibraryFingerprint"
+      :mc-set-fingerprint="activeFingerprint"
+      :resume-request="trainerResumeRequest"
+      @learning-location="handleLearningLocation"
+      @learning-location-cleared="handleLearningLocationCleared"
     />
 
     <footer class="app-footer" aria-label="Projektinformationen">
-      <span>Version 0.4.0</span>
+      <span>Version 0.5.0</span>
       <span>Marketing edition</span>
       <a
         href="https://github.com/s0582356/marketing-concepts-quiz"
