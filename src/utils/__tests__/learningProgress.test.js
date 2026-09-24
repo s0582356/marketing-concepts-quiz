@@ -2,13 +2,16 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   LEARNING_PROGRESS_STORAGE_KEY,
   clearLastLearningLocationIfArea,
+  deleteMasterLearnProgress,
   deleteMethodTrainerProgress,
   deleteMixedExamProgress,
   deleteQuizProgress,
   getLastLearningLocation,
+  getMasterLearnProgress,
   getMethodTrainerProgress,
   getMixedExamProgress,
   getQuizProgress,
+  saveMasterLearnProgress,
   saveMethodTrainerProgress,
   saveMixedExamProgress,
   saveQuizProgress,
@@ -134,6 +137,70 @@ describe('Mixed-Exam-Checkpoint', () => {
     saveMixedExamProgress(FP_A, examProgress())
     deleteMixedExamProgress(FP_A)
     expect(getMixedExamProgress(FP_A)).toBeNull()
+  })
+})
+
+function masterLearnProgress(overrides = {}) {
+  return {
+    bankFileName: 'marketing_master_lernmentor_full_v1_1.json',
+    currentChapterId: 'ch01',
+    currentTopicId: 'ch01-t01',
+    currentQuestionId: 'mlm-ch01-t01-q01',
+    currentQuestionIndex: 0,
+    topicsSeen: ['ch01-t01'],
+    completedTopicIds: [],
+    selfRatings: { 'mlm-ch01-t01-q01': 'green' },
+    isComplete: false,
+    lastAccessedAt: new Date().toISOString(),
+    ...overrides,
+  }
+}
+
+describe('Master-Lernmentor-Checkpoint (Test 14/15/16/22)', () => {
+  it('speichert und liest Kapitel-/Topic-/Fragen-Position und Self-Ratings (Test 14)', () => {
+    expect(saveMasterLearnProgress(FP_A, masterLearnProgress())).toBe(true)
+    const restored = getMasterLearnProgress(FP_A)
+    expect(restored.currentChapterId).toBe('ch01')
+    expect(restored.currentTopicId).toBe('ch01-t01')
+    expect(restored.selfRatings['mlm-ch01-t01-q01']).toBe('green')
+  })
+
+  it('lehnt einen unbekannten Self-Rating-Code ab', () => {
+    expect(saveMasterLearnProgress(FP_A, masterLearnProgress({ selfRatings: { q1: 'blue' } }))).toBe(false)
+  })
+
+  it('lehnt eine negative Fragenposition ab', () => {
+    expect(saveMasterLearnProgress(FP_A, masterLearnProgress({ currentQuestionIndex: -1 }))).toBe(false)
+  })
+
+  it('dedupliziert topicsSeen und completedTopicIds', () => {
+    saveMasterLearnProgress(FP_A, masterLearnProgress({ topicsSeen: ['t1', 't1', 't2'], completedTopicIds: ['t1', 't1'] }))
+    const restored = getMasterLearnProgress(FP_A)
+    expect(restored.topicsSeen).toEqual(['t1', 't2'])
+    expect(restored.completedTopicIds).toEqual(['t1'])
+  })
+
+  it('persistiert nie Frage-, Master- oder Freitext, nur technische Felder (Test 9, Datensicherheitstest)', () => {
+    saveMasterLearnProgress(FP_A, masterLearnProgress())
+    const raw = window.localStorage.getItem(LEARNING_PROGRESS_STORAGE_KEY)
+    expect(raw).not.toContain('masterContent')
+    expect(raw).not.toContain('masterExcerpt')
+    expect(raw).not.toContain('shortModelAnswer')
+    expect(raw).not.toContain('PRIVATE_FREETEXT_SHOULD_NOT_PERSIST_92817')
+  })
+
+  it('ignoriert unbekannte Zusatzfelder statt sie zu übernehmen (z.B. versehentlich mitgereichter Freitext)', () => {
+    saveMasterLearnProgress(FP_A, { ...masterLearnProgress(), freeText: 'PRIVATE_FREETEXT_SHOULD_NOT_PERSIST_92817' })
+    const raw = window.localStorage.getItem(LEARNING_PROGRESS_STORAGE_KEY)
+    expect(raw).not.toContain('PRIVATE_FREETEXT_SHOULD_NOT_PERSIST_92817')
+  })
+
+  it('löscht gezielt nur den Master-Lernmentor-Checkpoint dieses Fingerprints (Test 14)', () => {
+    saveMasterLearnProgress(FP_A, masterLearnProgress())
+    saveQuizProgress(FP_B, quizProgress())
+    deleteMasterLearnProgress(FP_A)
+    expect(getMasterLearnProgress(FP_A)).toBeNull()
+    expect(getQuizProgress(FP_B)).not.toBeNull()
   })
 })
 

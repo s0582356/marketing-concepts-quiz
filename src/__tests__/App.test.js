@@ -79,6 +79,27 @@ describe('3-Modi-Gerüst', () => {
   })
 })
 
+describe('Master-Lernmentor-Navigation (Test 2)', () => {
+  it('öffnet den Master-Lernmentor über den Bereichs-Umschalter, mit eigenem lokalen Importer', async () => {
+    const wrapper = mount(App)
+    expect(wrapper.find('.master-lernmentor').exists()).toBe(false)
+
+    await findButtonByText(wrapper, 'Master-Lernmentor').trigger('click')
+
+    expect(wrapper.find('.master-lernmentor').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Master-Lernmentor-Bank lokal laden')
+    expect(findButtonByText(wrapper, 'JSON auswählen')).toBeTruthy()
+  })
+
+  it('zeigt die Master-Lernmentor-Dashboard-Kachel zwischen Quiz und Methodentrainer und öffnet darüber denselben Bereich', async () => {
+    const wrapper = mount(App)
+    const tile = wrapper.find('.dashboard-tile-master-learn')
+    expect(tile.exists()).toBe(true)
+    await tile.trigger('click')
+    expect(wrapper.find('.master-lernmentor').exists()).toBe(true)
+  })
+})
+
 describe('Datenschutz: private Inhalte bleiben aus dem Fortschrittsspeicher (Test 15)', () => {
   it('schreibt beim Spielen einer Methodentrainer-Sitzung nichts in localStorage', async () => {
     const setItemSpy = vi.spyOn(window.localStorage.__proto__, 'setItem')

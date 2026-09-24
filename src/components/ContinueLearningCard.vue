@@ -27,7 +27,7 @@ const emit = defineEmits(['continue', 'load-libraries', 'discard'])
 
 const positionLabel = computed(() => {
   if (!props.location || props.location.position === null || props.location.total === null) return null
-  const noun = props.location.area === 'quiz' ? 'Frage' : 'Aufgabe'
+  const noun = props.location.area === 'quiz' ? 'Frage' : props.location.area === 'masterLearn' ? 'Topic' : 'Aufgabe'
   return `${noun} ${props.location.position} von ${props.location.total}`
 })
 

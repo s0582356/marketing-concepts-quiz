@@ -1,19 +1,22 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import QuizCard from './components/QuizCard.vue'
 import ScoreBox from './components/ScoreBox.vue'
 import PrivateQuestionImporter from './components/PrivateQuestionImporter.vue'
 import LibraryLoader from './components/LibraryLoader.vue'
 import HomeDashboard from './components/HomeDashboard.vue'
 import MethodTrainerApp from './methodtrainer/MethodTrainerApp.vue'
+import MasterLernmentorApp from './masterlernmentor/MasterLernmentorApp.vue'
 import sampleQuestions from './data/public/sampleQuestions.json'
 import sampleTrainingUnits from './data/public/sampleTrainingUnits.json'
 import {
   clearLastLearningLocationIfArea,
+  deleteMasterLearnProgress,
   deleteMethodTrainerProgress,
   deleteMixedExamProgress,
   deleteQuizProgress,
   getLastLearningLocation,
+  getMasterLearnProgress,
   getQuizProgress,
   saveQuizProgress,
   setLastLearningLocation,
@@ -25,6 +28,7 @@ import {
   mergeMcQuestions,
   mergeTrainingUnits,
 } from './utils/libraryImport.js'
+import { countTopics } from './utils/masterLernmentorValidator.js'
 
 const THEME_STORAGE_KEY = 'marketingQuizTheme'
 
@@ -40,7 +44,7 @@ function applyTheme(themeValue) {
   if (typeof document !== 'undefined') document.documentElement.setAttribute('data-theme', themeValue)
 }
 
-// 'home' (Dashboard/Weiterlernen) | 'quiz' | 'trainer' (Methodentrainer inkl. Mixed Exam)
+// 'home' (Dashboard/Weiterlernen) | 'quiz' | 'masterLearn' | 'trainer' (Methodentrainer inkl. Mixed Exam)
 const currentView = ref('home')
 
 const theme = ref(getInitialTheme())
@@ -87,6 +91,44 @@ const answeredQuestions = ref([])
 const mcLibraryBanks = ref({})
 const trainingUnitLibraryBanks = ref({})
 
+// Master-Lernmentor: eigene, von der MC-/Trainingseinheiten-Registry
+// unabhängige Bank - ein einzelnes privates JSON-Objekt (kein Multi-Bank-
+// Merge), lebt ausschließlich im Arbeitsspeicher dieser Session (nie in
+// localStorage/IndexedDB, siehe Aufgabenstellung Abschnitt 3). { data,
+// fingerprint, fileName } | null.
+const masterLernmentorBank = ref(null)
+const masterLernmentorAppRef = ref(null)
+function handleMasterLernmentorBankLoaded(payload) {
+  masterLernmentorBank.value = payload
+}
+// Nur ein grober, technischer Lernfortschritts-Prozentwert für die
+// Dashboard-Kachel (keine Note, kein Score) - basiert auf abgeschlossenen
+// Topics, nicht auf der aktuellen Position (die nach Abschluss der letzten
+// Topic sonst fälschlich unter 100% bliebe). Analog zu refreshQuizCheckpoint:
+// expliziter Refresh statt stillem localStorage-Read in einem computed.
+const masterLearnProgressPercent = ref(null)
+function refreshMasterLearnProgress() {
+  if (!masterLernmentorBank.value) {
+    masterLearnProgressPercent.value = null
+    return
+  }
+  const checkpoint = getMasterLearnProgress(masterLernmentorBank.value.fingerprint)
+  if (!checkpoint) {
+    masterLearnProgressPercent.value = 0
+    return
+  }
+  if (checkpoint.isComplete) {
+    masterLearnProgressPercent.value = 100
+    return
+  }
+  const total = countTopics(masterLernmentorBank.value.data)
+  const rawPercent = total ? Math.round((checkpoint.completedTopicIds.length / total) * 100) : 0
+  // Harte Grenze 0-100% (Codex Technical Red Team, Finding m-01) - unabhängig
+  // davon, ob der Checkpoint bereits bankgebunden normalisiert wurde.
+  masterLearnProgressPercent.value = Math.min(100, Math.max(0, rawPercent))
+}
+watch(masterLernmentorBank, refreshMasterLearnProgress, { immediate: true })
+
 const libraryMcQuestions = computed(() => mergeMcQuestions(mcLibraryBanks.value))
 const libraryTrainingUnits = computed(() => mergeTrainingUnits(trainingUnitLibraryBanks.value))
 // Anzeigenamen kommen aus den Bank-Objekten (bank.fileName), nicht aus den
@@ -120,6 +162,7 @@ function refreshLastLearningLocation() {
 function handleLearningLocation(payload) {
   setLastLearningLocation(payload)
   refreshLastLearningLocation()
+  if (payload.area === 'masterLearn') refreshMasterLearnProgress()
 }
 // Wird ausgelöst, wenn ein Bereich (Mixed Exam oder Methodentrainer) seine
 // eigene Sitzung fachlich abgeschlossen und ihren Checkpoint bereits gelöscht
@@ -135,7 +178,7 @@ function refreshQuizCheckpoint() {
   quizCheckpoint.value = activeFingerprint.value ? getQuizProgress(activeFingerprint.value) : null
 }
 
-const AREA_LABELS = { quiz: 'Quiz', methodTrainer: 'Methodentrainer', mixedExam: 'Mixed Transfer Exam' }
+const AREA_LABELS = { quiz: 'Quiz', methodTrainer: 'Methodentrainer', mixedExam: 'Mixed Transfer Exam', masterLearn: 'Master-Lernmentor' }
 // Rein app-definierte, technische Anzeigenamen der Methodentrainer-Kacheln -
 // keine aus privaten Trainingsdaten abgeleiteten Inhalte (siehe PRIVACY-Teil
 // des Abschlussberichts).
@@ -160,6 +203,7 @@ const isResumeReady = computed(() => {
   const location = lastLearningLocation.value
   if (!location) return false
   if (location.area === 'methodTrainer') return location.setFingerprint === trainingLibraryFingerprint.value
+  if (location.area === 'masterLearn') return location.setFingerprint === masterLernmentorBank.value?.fingerprint
   return location.setFingerprint === activeFingerprint.value
 })
 
@@ -179,7 +223,10 @@ const trainerResumeRequest = ref(null)
 // Private-Data-Realtest, nicht Teil des ursprünglichen Codex-Berichts).
 watch(currentView, (view) => {
   if (view !== 'trainer') trainerResumeRequest.value = null
+  if (view !== 'masterLearn') masterLearnResumeRequest.value = null
 })
+
+const masterLearnResumeRequest = ref(null)
 
 function continueLearning() {
   const location = lastLearningLocation.value
@@ -190,6 +237,9 @@ function continueLearning() {
   if (location.area === 'quiz') {
     currentView.value = 'quiz'
     resumeQuizFromCheckpoint()
+  } else if (location.area === 'masterLearn') {
+    currentView.value = 'masterLearn'
+    masterLearnResumeRequest.value = { nonce: Date.now() }
   } else {
     currentView.value = 'trainer'
     trainerResumeRequest.value = { area: location.area, nonce: Date.now() }
@@ -197,6 +247,12 @@ function continueLearning() {
 }
 
 function handleLoadLibrariesForResume() {
+  const location = lastLearningLocation.value
+  if (location?.area === 'masterLearn') {
+    currentView.value = 'masterLearn'
+    nextTick(() => masterLernmentorAppRef.value?.openFilePicker())
+    return
+  }
   libraryLoaderRef.value?.openFilePicker()
 }
 
@@ -206,6 +262,7 @@ function handleDiscardContinue() {
   if (location.area === 'quiz') deleteQuizProgress(location.setFingerprint)
   else if (location.area === 'methodTrainer') deleteMethodTrainerProgress(location.setFingerprint)
   else if (location.area === 'mixedExam') deleteMixedExamProgress(location.setFingerprint)
+  else if (location.area === 'masterLearn') deleteMasterLearnProgress(location.setFingerprint)
   clearLastLearningLocationIfArea(location.area, location.setFingerprint)
   refreshLastLearningLocation()
   refreshQuizCheckpoint()
@@ -530,6 +587,16 @@ async function handleLibraryLoaded(result) {
           type="button"
           role="tab"
           class="view-switcher-button"
+          :class="{ 'view-switcher-active': currentView === 'masterLearn' }"
+          :aria-selected="currentView === 'masterLearn'"
+          @click="currentView = 'masterLearn'"
+        >
+          Master-Lernmentor
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="view-switcher-button"
           :class="{ 'view-switcher-active': currentView === 'trainer' }"
           :aria-selected="currentView === 'trainer'"
           @click="currentView = 'trainer'"
@@ -561,10 +628,13 @@ async function handleLibraryLoaded(result) {
       :quiz-answered="quizProgressSummary ? quizProgressSummary.answered : null"
       :quiz-total="quizProgressSummary ? quizProgressSummary.total : null"
       :training-unit-count="libraryTrainingUnits.length > 0 ? libraryTrainingUnits.length : sampleTrainingUnits.length"
+      :has-master-lernmentor-bank="Boolean(masterLernmentorBank)"
+      :master-learn-progress-percent="masterLearnProgressPercent"
       @continue="continueLearning"
       @load-libraries="handleLoadLibrariesForResume"
       @discard-continue="handleDiscardContinue"
       @open-quiz="currentView = 'quiz'"
+      @open-master-learn="currentView = 'masterLearn'"
       @open-trainer="currentView = 'trainer'"
       @open-mixed-exam="currentView = 'trainer'"
     />
@@ -696,8 +766,18 @@ async function handleLibraryLoaded(result) {
     </section>
     </template>
 
+    <MasterLernmentorApp
+      v-else-if="currentView === 'masterLearn'"
+      ref="masterLernmentorAppRef"
+      :bank="masterLernmentorBank"
+      :resume-request="masterLearnResumeRequest"
+      @bank-loaded="handleMasterLernmentorBankLoaded"
+      @learning-location="handleLearningLocation"
+      @learning-location-cleared="handleLearningLocationCleared"
+    />
+
     <MethodTrainerApp
-      v-else
+      v-else-if="currentView === 'trainer'"
       :mc-questions="originalQuestions"
       :library-training-units="libraryTrainingUnits"
       :trainer-bank-fingerprint="trainingLibraryFingerprint"

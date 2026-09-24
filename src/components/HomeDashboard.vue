@@ -13,6 +13,11 @@ defineProps({
   quizTotal: { type: Number, default: null },
 
   trainingUnitCount: { type: Number, default: 0 },
+
+  hasMasterLernmentorBank: { type: Boolean, default: false },
+  // Reiner Lernfortschritts-Prozentwert (kein Score/keine Note) oder null,
+  // solange keine Master-Lernmentor-Bank geladen ist.
+  masterLearnProgressPercent: { type: Number, default: null },
 })
 
 const emit = defineEmits([
@@ -20,6 +25,7 @@ const emit = defineEmits([
   'load-libraries',
   'discard-continue',
   'open-quiz',
+  'open-master-learn',
   'open-trainer',
   'open-mixed-exam',
 ])
@@ -49,6 +55,14 @@ const emit = defineEmits([
         <p v-if="hasPrivateMcLibrary">{{ mcQuestionCount }} private Fragen geladen</p>
         <p v-else>{{ mcQuestionCount }} öffentliche Beispiel-Fragen</p>
         <p v-if="quizAnswered !== null" class="dashboard-tile-progress">Bearbeitet {{ quizAnswered }} / {{ quizTotal }}</p>
+      </button>
+
+      <button type="button" class="dashboard-tile dashboard-tile-master-learn" @click="emit('open-master-learn')">
+        <span class="dashboard-tile-icon" aria-hidden="true">📖</span>
+        <h3>Master-Lernmentor</h3>
+        <p>Der komplette Master, in eigenen Worten – Kapitel für Kapitel.</p>
+        <p v-if="masterLearnProgressPercent !== null" class="dashboard-tile-progress">Master gelernt: {{ masterLearnProgressPercent }} %</p>
+        <p v-else-if="!hasMasterLernmentorBank" class="dashboard-tile-progress">Private Bank lokal laden, um zu starten</p>
       </button>
 
       <button type="button" class="dashboard-tile dashboard-tile-trainer" @click="emit('open-trainer')">

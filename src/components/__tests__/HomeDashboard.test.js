@@ -32,11 +32,29 @@ describe('HomeDashboard', () => {
   it('leitet Klicks auf die Bereichs-Kacheln als Events weiter', async () => {
     const wrapper = mount(HomeDashboard)
     await wrapper.find('.dashboard-tile-quiz').trigger('click')
+    await wrapper.find('.dashboard-tile-master-learn').trigger('click')
     await wrapper.find('.dashboard-tile-trainer').trigger('click')
     await wrapper.find('.dashboard-tile-exam').trigger('click')
     expect(wrapper.emitted('open-quiz')).toBeTruthy()
+    expect(wrapper.emitted('open-master-learn')).toBeTruthy()
     expect(wrapper.emitted('open-trainer')).toBeTruthy()
     expect(wrapper.emitted('open-mixed-exam')).toBeTruthy()
+  })
+
+  it('zeigt die Master-Lernmentor-Kachel zwischen Quiz und Methodentrainer, mit reinem Lernfortschritt statt Score (Test 1)', () => {
+    const wrapper = mount(HomeDashboard, { props: { hasMasterLernmentorBank: true, masterLearnProgressPercent: 43 } })
+    const tiles = wrapper.findAll('.dashboard-tile')
+    const tileClasses = tiles.map((tile) => tile.classes().find((c) => c.startsWith('dashboard-tile-') && c !== 'dashboard-tile'))
+    expect(tileClasses).toEqual(['dashboard-tile-quiz', 'dashboard-tile-master-learn', 'dashboard-tile-trainer', 'dashboard-tile-exam'])
+    expect(wrapper.text()).toContain('Master-Lernmentor')
+    expect(wrapper.text()).toContain('Master gelernt: 43 %')
+    expect(wrapper.text()).not.toContain('Note')
+    expect(wrapper.text()).not.toContain('Score')
+  })
+
+  it('bietet an, die private Bank lokal zu laden, solange keine geladen ist', () => {
+    const wrapper = mount(HomeDashboard, { props: { hasMasterLernmentorBank: false, masterLearnProgressPercent: null } })
+    expect(wrapper.text()).toContain('Private Bank lokal laden, um zu starten')
   })
 
   it('reicht die Weiterlernen-Karten-Events unverändert nach oben durch', async () => {

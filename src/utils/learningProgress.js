@@ -18,7 +18,8 @@ const LEGACY_QUIZ_STORAGE_KEY = 'marketingQuizProgress:v1'
 const SCHEMA_VERSION = 2
 const SHA256_PATTERN = /^[a-f0-9]{64}$/
 const TRAINING_MODES = ['learn', 'apply', 'exam']
-const LEARNING_AREAS = ['quiz', 'methodTrainer', 'mixedExam']
+const LEARNING_AREAS = ['quiz', 'methodTrainer', 'mixedExam', 'masterLearn']
+const SELF_RATINGS = ['green', 'yellow', 'red']
 
 function storageAvailable() {
   return typeof window !== 'undefined' && window.localStorage
@@ -39,6 +40,7 @@ function emptyStore() {
     quizBySetFingerprint: {},
     methodTrainerBySetFingerprint: {},
     mixedExamBySetFingerprint: {},
+    masterLearnBySetFingerprint: {},
   }
 }
 
@@ -146,6 +148,42 @@ function sanitizeMixedExamProgress(progress) {
   }
 }
 
+// ---- Sektion: Master-Lernmentor -----------------------------------------
+//
+// Persistiert ausschließlich technische Fortschritts-Metadaten (IDs, Indizes,
+// Selbsteinschätzungs-Codes, Zeitstempel) - niemals Frage-/Mastertext,
+// Musterantworten, Hints oder die eingegebene Freitextantwort. Die
+// Selbsteinschätzung (🟢/🟡/🔴) wird als technischer Code ('green'/'yellow'/
+// 'red'), nie als Freitext gespeichert.
+
+function sanitizeMasterLearnProgress(progress) {
+  if (!progress || typeof progress !== 'object') return null
+  if (typeof progress.bankFileName !== 'string' || !progress.bankFileName) return null
+  if (typeof progress.currentChapterId !== 'string' || !progress.currentChapterId) return null
+  if (typeof progress.currentTopicId !== 'string' || !progress.currentTopicId) return null
+  if (progress.currentQuestionId !== null && (typeof progress.currentQuestionId !== 'string' || !progress.currentQuestionId)) return null
+  if (!isNonNegInt(progress.currentQuestionIndex)) return null
+  if (!Array.isArray(progress.topicsSeen) || !progress.topicsSeen.every((id) => typeof id === 'string' && id)) return null
+  if (!Array.isArray(progress.completedTopicIds) || !progress.completedTopicIds.every((id) => typeof id === 'string' && id)) return null
+  if (!progress.selfRatings || typeof progress.selfRatings !== 'object' || Array.isArray(progress.selfRatings)) return null
+  if (!Object.entries(progress.selfRatings).every(([key, value]) => typeof key === 'string' && key && SELF_RATINGS.includes(value))) return null
+  if (typeof progress.isComplete !== 'boolean') return null
+  if (!isIsoDateString(progress.lastAccessedAt)) return null
+
+  return {
+    bankFileName: progress.bankFileName,
+    currentChapterId: progress.currentChapterId,
+    currentTopicId: progress.currentTopicId,
+    currentQuestionId: progress.currentQuestionId ?? null,
+    currentQuestionIndex: progress.currentQuestionIndex,
+    topicsSeen: [...new Set(progress.topicsSeen)],
+    completedTopicIds: [...new Set(progress.completedTopicIds)],
+    selfRatings: { ...progress.selfRatings },
+    isComplete: progress.isComplete,
+    lastAccessedAt: progress.lastAccessedAt,
+  }
+}
+
 // ---- Sektion: globaler letzter Lernort ----------------------------------
 
 function sanitizeLastLearningLocation(location) {
@@ -242,6 +280,7 @@ function readStore() {
       ['quizBySetFingerprint', parsed.quizBySetFingerprint, sanitizeQuizProgress],
       ['methodTrainerBySetFingerprint', parsed.methodTrainerBySetFingerprint, sanitizeMethodTrainerProgress],
       ['mixedExamBySetFingerprint', parsed.mixedExamBySetFingerprint, sanitizeMixedExamProgress],
+      ['masterLearnBySetFingerprint', parsed.masterLearnBySetFingerprint, sanitizeMasterLearnProgress],
     ]) {
       if (!sectionRaw || typeof sectionRaw !== 'object') continue
       for (const [fingerprint, entry] of Object.entries(sectionRaw)) {
@@ -322,6 +361,18 @@ export function getMixedExamProgress(fingerprint) {
 }
 export function deleteMixedExamProgress(fingerprint) {
   return deleteSection('mixedExamBySetFingerprint', fingerprint)
+}
+
+// ---- Öffentliche API: Master-Lernmentor ------------------------------------
+
+export function saveMasterLearnProgress(fingerprint, progress) {
+  return saveSection('masterLearnBySetFingerprint', sanitizeMasterLearnProgress, fingerprint, progress)
+}
+export function getMasterLearnProgress(fingerprint) {
+  return getSection('masterLearnBySetFingerprint', fingerprint)
+}
+export function deleteMasterLearnProgress(fingerprint) {
+  return deleteSection('masterLearnBySetFingerprint', fingerprint)
 }
 
 // ---- Öffentliche API: globaler letzter Lernort -----------------------------
