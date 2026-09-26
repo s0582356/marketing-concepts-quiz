@@ -116,6 +116,15 @@ function bankProp(fingerprint = FINGERPRINT_A) {
   return { data: testBank(), fingerprint, fileName: 'test-bank.json' }
 }
 
+// Eigene Fixture für die shortLearnAnswer-Erweiterung (Test 4-9, 11): nur q01
+// bekommt shortLearnAnswer, die restlichen Fragen bleiben ohne dieses Feld,
+// damit derselbe Test auch die gleichzeitige Koexistenz beider Flows prüft.
+function bankWithShortLearnAnswer(fingerprint = FINGERPRINT_A) {
+  const data = testBank()
+  data.chapters[0].topics[0].questions[0].shortLearnAnswer = 'SHORT_LEARN_ANSWER_EXAKTER_TEXT_92817'
+  return { data, fingerprint, fileName: 'short-learn-answer-bank.json' }
+}
+
 async function openFirstChapter(wrapper) {
   await findButtonByText(wrapper, 'Kapitel öffnen').trigger('click')
 }
@@ -165,6 +174,27 @@ function bankWithMismatchedRequirements() {
     fingerprint: 'c'.repeat(64),
     fileName: 'mismatch-bank.json',
   }
+}
+
+// Cross-Reference-Metadata-Repair (Codex Technical Red Team): ein Topic mit
+// topicKind === "crossReference" hat bewusst questions: [] (z.B. ch07-t08 im
+// privaten Goldstandard). Eigene kleine Bank mit genau einem solchen Topic
+// zwischen zwei normalen Topics, damit Navigation/Fortschritt/Resume über die
+// Cross-Reference-Stelle hinweg geprüft werden können, ohne die private Bank
+// zu benötigen.
+function bankWithCrossReferenceTopic() {
+  const data = testBank()
+  data.chapters[0].topics.splice(1, 0, {
+    topicId: 'ch01-t01b',
+    topicNumber: '1.1b',
+    topicTitle: 'Verweis-Topic',
+    topicKind: 'crossReference',
+    chapterId: 'ch01',
+    learningPhase: { masterAnchor: '1.1b', masterContent: '## 1.1b Verweis-Topic\n\nDieser Abschnitt verweist nur auf andere Kapitel, ohne eigene Frage.' },
+    questions: [],
+    visualAssets: [],
+  })
+  return { data, fingerprint: FINGERPRINT_A, fileName: 'cross-reference-bank.json' }
 }
 
 beforeEach(() => {
@@ -338,6 +368,90 @@ describe('Antwortprüfung (Test 10, 11, 12, 20)', () => {
 
     expect(wrapper.text()).not.toMatch(/falsch\s*[-–]\s*\d+\s*%/i)
     expect(wrapper.find('.concept-requirement-hint').exists()).toBe(true)
+  })
+})
+
+describe('Kurz-Lernantwort / shortLearnAnswer (Test 4-11)', () => {
+  it('zeigt die Kurz-Lernantwort nach "Antwort prüfen" exakt und unverändert an (Test 4, 5)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithShortLearnAnswer() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+
+    expect(wrapper.find('.short-learn-answer-box').exists()).toBe(true)
+    expect(wrapper.find('.short-learn-answer-box').text()).toContain('SHORT_LEARN_ANSWER_EXAKTER_TEXT_92817')
+  })
+
+  it('zeigt die ausführliche Musterantwort bei shortLearnAnswer zunächst eingeklappt, mit korrektem aria-expanded (Test 6, 9)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithShortLearnAnswer() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+
+    expect(wrapper.find('.model-answer-box').exists()).toBe(false)
+    const toggle = findButtonByText(wrapper, 'Ausführliche Musterantwort anzeigen')
+    expect(toggle).toBeTruthy()
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+  })
+
+  it('öffnet und schließt die ausführliche Musterantwort per Toggle (Test 7, 8, 9)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithShortLearnAnswer() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+
+    await findButtonByText(wrapper, 'Ausführliche Musterantwort anzeigen').trigger('click')
+    expect(wrapper.find('.model-answer-box').exists()).toBe(true)
+    expect(wrapper.find('.model-answer-box').text()).toContain('Dies ist die Musterantwort.')
+    const openToggle = findButtonByText(wrapper, 'Ausführliche Musterantwort ausblenden')
+    expect(openToggle.attributes('aria-expanded')).toBe('true')
+
+    await openToggle.trigger('click')
+    expect(wrapper.find('.model-answer-box').exists()).toBe(false)
+    expect(findButtonByText(wrapper, 'Ausführliche Musterantwort anzeigen')).toBeTruthy()
+  })
+
+  it('setzt den Toggle beim Wechsel zur nächsten Frage wieder auf eingeklappt zurück', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithShortLearnAnswer() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Ausführliche Musterantwort anzeigen').trigger('click')
+    expect(wrapper.find('.model-answer-box').exists()).toBe(true)
+
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+
+    // q02 hat kein shortLearnAnswer -> bisheriger Flow, Musterantwort sofort sichtbar.
+    expect(wrapper.find('.short-learn-answer-box').exists()).toBe(false)
+    expect(wrapper.find('.model-answer-box').exists()).toBe(true)
+  })
+
+  it('zeigt bei einer Frage ohne shortLearnAnswer weiterhin den bisherigen Flow ohne Kurzantwort/Toggle (Test 10)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankProp() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+
+    expect(wrapper.find('.short-learn-answer-box').exists()).toBe(false)
+    expect(findButtonByText(wrapper, 'Ausführliche Musterantwort anzeigen')).toBeFalsy()
+    expect(wrapper.find('.model-answer-box').exists()).toBe(true)
+    expect(wrapper.find('.model-answer-box').text()).toContain('Dies ist die Musterantwort.')
+  })
+
+  it('persistiert shortLearnAnswer nie in localStorage (Test 11)', async () => {
+    const setItemSpy = vi.spyOn(window.localStorage.__proto__, 'setItem')
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithShortLearnAnswer() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Ausführliche Musterantwort anzeigen').trigger('click')
+
+    for (const call of setItemSpy.mock.calls) {
+      expect(call.join('|')).not.toContain('SHORT_LEARN_ANSWER_EXAKTER_TEXT_92817')
+    }
+    const raw = window.localStorage.getItem('marketingLearningProgress:v2')
+    expect(raw).not.toContain('SHORT_LEARN_ANSWER_EXAKTER_TEXT_92817')
   })
 })
 
@@ -519,5 +633,150 @@ describe('Bank-Aware Resume-Hardening (Codex Finding m-01, MINOR) - End-to-End',
     expect(healedCheckpoint.selfRatings).toEqual({ q01: 'green' })
     expect(healedCheckpoint.currentTopicId).toBe('ch01-t01')
     expect(healedCheckpoint.currentQuestionIndex).toBe(0)
+  })
+})
+
+// Cross-Reference-Metadata-Repair (Codex Technical Red Team): ein Topic mit
+// topicKind === "crossReference" (questions: []) darf nie in den Fragenmodus
+// wechseln, nie eine Phantomfrage erzeugen und den Fortschritt/100%/Resume
+// der übrigen, echten Fragen nicht kaputt machen.
+describe('Cross-Reference-Topic (topicKind === "crossReference")', () => {
+  it('zeigt beim Betreten nur den Lernabschnitt, nie ein Fragen-Layout - crasht nicht (Test 7, 8)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithCrossReferenceTopic() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    // ch01-t01 (2 Fragen) fertig -> "Nächstes Unterthema" führt zum Cross-Reference-Topic.
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+
+    expect(wrapper.text()).toContain('Verweis-Topic')
+    expect(wrapper.find('.learning-phase-card').exists()).toBe(true)
+    expect(wrapper.find('.quiz-layout').exists()).toBe(false)
+    expect(wrapper.find('.freetext-field').exists()).toBe(false)
+    // Keine Phantomfrage: kein "abfragen"-Button, weil es nichts abzufragen gibt.
+    expect(findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen')).toBeFalsy()
+    expect(findButtonByText(wrapper, 'Gelesen – weiter')).toBeTruthy()
+  })
+
+  it('schließt das Cross-Reference-Topic beim Bestätigen direkt ab, ohne je ins Fragen-Layout zu wechseln (Test 8, 9)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithCrossReferenceTopic() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+
+    await findButtonByText(wrapper, 'Gelesen – weiter').trigger('click')
+
+    expect(wrapper.find('.quiz-layout').exists()).toBe(false)
+    expect(wrapper.find('.result-card').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Verweis-Topic')
+    // Bank hat 4 Topics gesamt (ch01-t01, Verweis-Topic, ch01-t02, ch02-t01) -> 2 abgeschlossen = 50%.
+    expect(wrapper.text()).toContain('Gesamt-Master-Fortschritt: 50 %')
+  })
+
+  it('führt die Navigation danach sicher zur nächsten echten Frage (Test 9)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithCrossReferenceTopic() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+    await findButtonByText(wrapper, 'Gelesen – weiter').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+
+    expect(wrapper.text()).toContain('Zweites Topic')
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    expect(wrapper.text()).toContain('Fall Y - was folgt daraus?')
+  })
+
+  it('zählt weiterhin nur die echten Fragen, erzeugt keine 173./Phantom-Frage und erreicht 100 % (Test 10, 11)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithCrossReferenceTopic() } })
+    expect(wrapper.text()).toContain('Master gelernt: 0 %')
+    await openFirstChapter(wrapper)
+
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    expect(wrapper.text()).toContain('Frage 1 von 2')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    expect(wrapper.text()).toContain('Frage 2 von 2')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+    await findButtonByText(wrapper, 'Gelesen – weiter').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+
+    // ch01-t02: genau 1 echte Frage, kein "Frage 1 von 0" oder Ähnliches.
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    expect(wrapper.text()).toContain('Frage 1 von 1')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+
+    // Letztes Topic (ch02-t01, 1 echte Frage).
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+
+    expect(wrapper.text()).toContain('Master gelernt: 100 %')
+  })
+
+  it('Resume auf einem Cross-Reference-Topic bleibt valide, keine Sackgasse (Test 12)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithCrossReferenceTopic() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+    // Checkpoint zeigt jetzt auf das Cross-Reference-Topic (learningPhase, noch nicht bestätigt).
+    await wrapper.unmount()
+
+    const resumed = mount(MasterLernmentorApp, { props: { bank: bankWithCrossReferenceTopic(), resumeRequest: { nonce: 1 } } })
+    await resumed.vm.$nextTick()
+
+    expect(resumed.find('.quiz-layout').exists()).toBe(false)
+    const visibleScreens = ['.chapter-overview', '.learning-phase-card', '.topic-intro-card', '.result-card']
+    expect(visibleScreens.some((selector) => resumed.find(selector).exists())).toBe(true)
+    expect(resumed.text()).toContain('Verweis-Topic')
+    // Von hier aus muss es sicher weitergehen, ohne Absturz/Sackgasse.
+    await findButtonByText(resumed, 'Gelesen – weiter').trigger('click')
+    expect(resumed.find('.quiz-layout').exists()).toBe(false)
+  })
+
+  it('lässt normale Topics und den shortLearnAnswer-Flow unverändert, auch wenn ein Cross-Reference-Topic in derselben Bank existiert (Test 13, 14, 15)', async () => {
+    const data = testBank()
+    data.chapters[0].topics[0].questions[0].shortLearnAnswer = 'SHORT_LEARN_ANSWER_CROSSREF_COEXIST_55219'
+    data.chapters[0].topics.splice(1, 0, {
+      topicId: 'ch01-t01b',
+      topicNumber: '1.1b',
+      topicTitle: 'Verweis-Topic',
+      topicKind: 'crossReference',
+      chapterId: 'ch01',
+      learningPhase: { masterAnchor: '1.1b', masterContent: '## 1.1b Verweis-Topic\n\nVerweis ohne eigene Frage.' },
+      questions: [],
+      visualAssets: [],
+    })
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: { data, fingerprint: FINGERPRINT_A, fileName: 'mixed-bank.json' } } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+
+    // q01 hat shortLearnAnswer - unveränderter Flow trotz Cross-Reference-Topic in derselben Bank.
+    expect(wrapper.find('.short-learn-answer-box').text()).toContain('SHORT_LEARN_ANSWER_CROSSREF_COEXIST_55219')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    // q02 hat kein shortLearnAnswer - bisheriger Flow bleibt intakt.
+    expect(wrapper.find('.short-learn-answer-box').exists()).toBe(false)
+    expect(wrapper.find('.model-answer-box').exists()).toBe(true)
   })
 })

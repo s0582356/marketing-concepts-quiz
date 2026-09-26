@@ -13,6 +13,16 @@ export function looksLikeMasterLernmentorBank(data) {
   return Boolean(data) && typeof data === 'object' && !Array.isArray(data) && Array.isArray(data.chapters)
 }
 
+// Kontrolliertes Enum für "topicKind" (Codex Technical Red Team, Cross-
+// Reference-Metadata-Repair): fehlt das Feld, gilt weiterhin die bisherige
+// Standardsemantik (normales Topic, questions muss nicht-leer sein). Aktuell
+// ist "crossReference" der einzige zusätzlich zulässige Wert - ein rein
+// strukturelles Verweis-Topic ohne eigene Frage (z.B. ch07-t08 im privaten
+// Goldstandard). Jeder andere Wert ist ein Schemafehler, keine stille
+// Lockerung. Neue Werte erfordern eine bewusste künftige Schemaentscheidung,
+// kein automatisches Durchwinken.
+const KNOWN_TOPIC_KINDS = ['crossReference']
+
 function fail(message) {
   throw new Error(message)
 }
@@ -62,6 +72,16 @@ function validateQuestion(question, path, seenQuestionIds) {
   if (!isNonEmptyString(question.shortModelAnswer)) fail(`${path}: "shortModelAnswer" fehlt.`)
   if (question.hint !== undefined && question.hint !== null && typeof question.hint !== 'string') fail(`${path}: "hint" muss Text sein.`)
 
+  // shortLearnAnswer ist optional (Kurz-Lernantwort-Erweiterung) - fehlt es,
+  // bleibt eine alte Bank ohne dieses Feld unverändert valide. Ist es
+  // vorhanden, muss es wie jeder andere Content-String ein nicht-leerer Text
+  // sein (nach Trim), damit nie ein leerer Kurzantwort-Bereich gerendert wird.
+  if (question.shortLearnAnswer !== undefined) {
+    if (typeof question.shortLearnAnswer !== 'string' || question.shortLearnAnswer.trim().length === 0) {
+      fail(`${path}: "shortLearnAnswer" muss, wenn vorhanden, ein nicht-leerer Text sein.`)
+    }
+  }
+
   if (!Array.isArray(question.coreConcepts) || question.coreConcepts.length === 0) fail(`${path}: "coreConcepts" muss ein nicht-leeres Array sein.`)
   question.coreConcepts.forEach((concept, index) => validateConcept(concept, `${path}.coreConcepts[${index}]`))
 
@@ -89,7 +109,18 @@ function validateTopic(topic, chapterId, path, seenTopicIds, seenQuestionIds) {
   if (!learningPhase || typeof learningPhase !== 'object') fail(`${path}: "learningPhase" fehlt.`)
   if (!isNonEmptyString(learningPhase.masterContent)) fail(`${path}: "learningPhase.masterContent" fehlt.`)
 
-  if (!Array.isArray(topic.questions) || topic.questions.length === 0) fail(`${path}: "questions" muss ein nicht-leeres Array sein.`)
+  // topicKind ist optional (Cross-Reference-Metadata-Repair) - fehlt es, gilt
+  // die bisherige Regel unverändert (questions muss nicht-leer sein). Nur ein
+  // explizit als "crossReference" gekennzeichnetes Topic darf questions: []
+  // haben - keine generelle Lockerung, kein ID-/Titel-Hardcoding. Jeder
+  // andere Wert ist ein Schemafehler.
+  if (topic.topicKind !== undefined && !KNOWN_TOPIC_KINDS.includes(topic.topicKind)) {
+    fail(`${path}: "topicKind" hat einen unbekannten Wert "${topic.topicKind}".`)
+  }
+  const isCrossReference = topic.topicKind === 'crossReference'
+
+  if (!Array.isArray(topic.questions)) fail(`${path}: "questions" muss ein Array sein.`)
+  if (!isCrossReference && topic.questions.length === 0) fail(`${path}: "questions" muss ein nicht-leeres Array sein.`)
   topic.questions.forEach((question, index) => validateQuestion(question, `${path}.questions[${index}]`, seenQuestionIds))
 
   if (topic.visualAssets !== undefined) {

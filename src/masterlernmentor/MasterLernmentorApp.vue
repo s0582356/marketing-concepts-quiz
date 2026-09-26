@@ -46,6 +46,10 @@ const showHint = ref(false)
 const checkResult = ref(null)
 const showMasterExcerpt = ref(false)
 const showLearningPhaseOverlay = ref(false)
+// Toggle für die ausführliche kanonische Musterantwort bei Fragen mit
+// shortLearnAnswer - rein lokaler UI-Zustand, wird nie persistiert und muss
+// beim Resume nicht wiederhergestellt werden (Default: eingeklappt).
+const showFullModelAnswer = ref(false)
 
 const flatTopics = computed(() => {
   if (!props.bank) return []
@@ -59,6 +63,13 @@ const flatTopics = computed(() => {
 
 const currentTopic = computed(() => flatTopics.value[currentTopicPointerIndex.value] ?? null)
 const currentQuestion = computed(() => currentTopic.value?.questions[currentQuestionIndex.value] ?? null)
+
+// Cross-Reference-Metadata-Repair (Codex Technical Red Team): ein Topic mit
+// topicKind === "crossReference" hat laut Validator bewusst keine eigene
+// Frage (z.B. ch07-t08 im privaten Goldstandard, verweist inhaltlich auf
+// andere Kapitel). Es darf nie in den normalen Fragenmodus wechseln - dort
+// gäbe es kein questions[0] und die Ansicht bliebe leer/kaputt.
+const isCrossReferenceTopic = computed(() => currentTopic.value?.topicKind === 'crossReference')
 
 const totalTopics = computed(() => flatTopics.value.length)
 const overallProgressPercent = computed(() => (totalTopics.value === 0 ? 0 : Math.round((completedTopicIds.value.length / totalTopics.value) * 100)))
@@ -104,7 +115,13 @@ function resetEphemeralQuestionState() {
   checkResult.value = null
   showMasterExcerpt.value = false
   showLearningPhaseOverlay.value = false
+  showFullModelAnswer.value = false
 }
+
+// shortLearnAnswer ist optional (siehe masterLernmentorValidator.js) - eine
+// Frage ohne dieses Feld (alte Bank) zeigt weiterhin den bisherigen Flow mit
+// sofort sichtbarer kanonischer Musterantwort.
+const hasShortLearnAnswer = computed(() => Boolean(currentQuestion.value?.shortLearnAnswer && currentQuestion.value.shortLearnAnswer.trim().length > 0))
 
 function persistProgress() {
   if (!props.bank || !currentTopic.value) return
@@ -188,7 +205,11 @@ function enterTopicByFlatIndex(index, { forceLearningPhase = false } = {}) {
   currentQuestionIndex.value = 0
   resetEphemeralQuestionState()
   const topic = flatTopics.value[index]
-  screen.value = !forceLearningPhase && topicsSeen.value.includes(topic.topicId) ? 'topicIntro' : 'learningPhase'
+  // Cross-Reference-Topics bieten nie die "kenne ich schon - direkt zur
+  // Abfrage"-Wahl (topicIntro) an, weil es keine Abfrage gibt, zu der man
+  // springen könnte - immer direkt der (erneut lesbare) Lernabschnitt.
+  const skipIntro = topic.topicKind === 'crossReference'
+  screen.value = !forceLearningPhase && !skipIntro && topicsSeen.value.includes(topic.topicId) ? 'topicIntro' : 'learningPhase'
   persistProgress()
 }
 
@@ -241,7 +262,20 @@ function chooseSkipToQuestions() {
 }
 
 function markLearningPhaseReadAndAskNow() {
-  if (currentTopic.value) topicsSeen.value = [...new Set([...topicsSeen.value, currentTopic.value.topicId])]
+  const topic = currentTopic.value
+  if (!topic) return
+  topicsSeen.value = [...new Set([...topicsSeen.value, topic.topicId])]
+  if (topic.topicKind === 'crossReference') {
+    // Kein questions[0] vorhanden - nie in den Fragenmodus wechseln. Der
+    // Lerninhalt wurde gelesen, das Topic gilt damit als abgeschlossen
+    // (Topic-basierter Fortschritt, siehe overallProgressPercent) und der
+    // Nutzer geht sicher weiter zum nächsten Topic, ohne Phantomfrage.
+    completedTopicIds.value = [...new Set([...completedTopicIds.value, topic.topicId])]
+    screen.value = 'topicComplete'
+    resetEphemeralQuestionState()
+    persistProgress()
+    return
+  }
   screen.value = 'question'
   currentQuestionIndex.value = 0
   resetEphemeralQuestionState()
@@ -347,7 +381,9 @@ defineExpose({ openFilePicker: () => importerRef.value?.openFilePicker() })
         <h3>{{ currentTopic.topicTitle }}</h3>
         <MasterContentRenderer :content="currentTopic.learningPhase.masterContent" :visual-assets="currentTopic.visualAssets || []" />
         <div class="result-actions">
-          <button class="primary-button" type="button" @click="markLearningPhaseReadAndAskNow">Ich habe es gelesen – jetzt abfragen</button>
+          <button class="primary-button" type="button" @click="markLearningPhaseReadAndAskNow">
+            {{ isCrossReferenceTopic ? 'Gelesen – weiter' : 'Ich habe es gelesen – jetzt abfragen' }}
+          </button>
         </div>
       </section>
 
@@ -428,8 +464,23 @@ defineExpose({ openFilePicker: () => importerRef.value?.openFilePicker() })
 
             <p v-for="(note, noteIndex) in checkResult.notes" :key="noteIndex" class="answer-flexibility-note">{{ note }}</p>
 
-            <div class="model-answer-box">
-              <p class="eyebrow">Kurze Musterantwort</p>
+            <div v-if="hasShortLearnAnswer" class="short-learn-answer-box">
+              <p class="eyebrow">Kurz-Lernantwort</p>
+              <p>{{ currentQuestion.shortLearnAnswer }}</p>
+            </div>
+
+            <button
+              v-if="hasShortLearnAnswer"
+              class="secondary-button model-answer-toggle"
+              type="button"
+              :aria-expanded="showFullModelAnswer"
+              @click="showFullModelAnswer = !showFullModelAnswer"
+            >
+              {{ showFullModelAnswer ? 'Ausführliche Musterantwort ausblenden' : 'Ausführliche Musterantwort anzeigen' }}
+            </button>
+
+            <div v-if="!hasShortLearnAnswer || showFullModelAnswer" class="model-answer-box">
+              <p class="eyebrow">{{ hasShortLearnAnswer ? 'Ausführliche Musterantwort' : 'Kurze Musterantwort' }}</p>
               <p>{{ currentQuestion.shortModelAnswer }}</p>
             </div>
 

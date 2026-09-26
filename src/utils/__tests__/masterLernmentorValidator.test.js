@@ -119,6 +119,120 @@ describe('validateMasterLernmentorBank', () => {
   })
 })
 
+// shortLearnAnswer-Erweiterung: optionales Feld, alte Banken ohne dieses Feld
+// müssen weiterhin unverändert valide bleiben (Backward Compatibility).
+describe('shortLearnAnswer (optionale Kurz-Lernantwort-Erweiterung)', () => {
+  it('eine Bank ohne shortLearnAnswer bleibt valide (Test 1)', () => {
+    const bank = validBank()
+    expect(bank.chapters[0].topics[0].questions[0].shortLearnAnswer).toBeUndefined()
+    expect(validateMasterLernmentorBank(bank)).toBe(bank)
+  })
+
+  it('eine Bank mit gültigem shortLearnAnswer ist valide (Test 2)', () => {
+    const bank = validBank({
+      chapters: [
+        { chapterId: 'ch01', chapterNumber: '1', chapterTitle: 'Marketing-Grundlagen', topics: [validTopic({ questions: [validQuestion({ shortLearnAnswer: 'Kurze Lernantwort für die Frage.' })] })] },
+      ],
+    })
+    expect(validateMasterLernmentorBank(bank)).toBe(bank)
+  })
+
+  it('lehnt ein leeres shortLearnAnswer ab (Test 3)', () => {
+    const bank = validBank()
+    bank.chapters[0].topics[0].questions[0].shortLearnAnswer = ''
+    expect(() => validateMasterLernmentorBank(bank)).toThrow(/shortLearnAnswer/)
+  })
+
+  it('lehnt ein shortLearnAnswer aus reinem Whitespace ab', () => {
+    const bank = validBank()
+    bank.chapters[0].topics[0].questions[0].shortLearnAnswer = '   '
+    expect(() => validateMasterLernmentorBank(bank)).toThrow(/shortLearnAnswer/)
+  })
+
+  it('lehnt ein shortLearnAnswer ab, das eine Zahl ist', () => {
+    const bank = validBank()
+    bank.chapters[0].topics[0].questions[0].shortLearnAnswer = 42
+    expect(() => validateMasterLernmentorBank(bank)).toThrow(/shortLearnAnswer/)
+  })
+
+  // Codex Technical Red Team (MINOR): shortLearnAnswer: null wurde bisher
+  // fälschlich als "Feld fehlt" behandelt und akzeptiert. Ist der Key
+  // vorhanden, ist null aber kein String - muss wie jeder andere
+  // Nicht-String-Wert abgelehnt werden.
+  it('lehnt shortLearnAnswer === null ab (Codex MINOR-Fix, nicht mehr "wie nicht vorhanden")', () => {
+    const bank = validBank()
+    bank.chapters[0].topics[0].questions[0].shortLearnAnswer = null
+    expect(() => validateMasterLernmentorBank(bank)).toThrow(/shortLearnAnswer/)
+  })
+
+  it('lehnt ein shortLearnAnswer ab, das ein Boolean ist', () => {
+    const bank = validBank()
+    bank.chapters[0].topics[0].questions[0].shortLearnAnswer = true
+    expect(() => validateMasterLernmentorBank(bank)).toThrow(/shortLearnAnswer/)
+  })
+
+  it('lehnt ein shortLearnAnswer ab, das ein Objekt ist', () => {
+    const bank = validBank()
+    bank.chapters[0].topics[0].questions[0].shortLearnAnswer = { text: 'Kurzantwort' }
+    expect(() => validateMasterLernmentorBank(bank)).toThrow(/shortLearnAnswer/)
+  })
+
+  it('lehnt ein shortLearnAnswer ab, das ein Array ist', () => {
+    const bank = validBank()
+    bank.chapters[0].topics[0].questions[0].shortLearnAnswer = ['Kurzantwort']
+    expect(() => validateMasterLernmentorBank(bank)).toThrow(/shortLearnAnswer/)
+  })
+})
+
+// Cross-Reference-Metadata-Repair (Codex Technical Red Team): topicKind ist
+// ein kontrolliertes Enum-Feld. Fehlt es, gilt unverändert die bisherige
+// Regel (questions muss nicht-leer sein) - keine generelle Lockerung, kein
+// ID-/Titel-Hardcoding, nur ein explizit deklariertes crossReference-Topic
+// darf questions: [] haben.
+describe('topicKind (Cross-Reference-Metadata-Repair)', () => {
+  it('ein normales Topic (topicKind fehlt) mit Fragen ist valide', () => {
+    const bank = validBank()
+    expect(bank.chapters[0].topics[0].topicKind).toBeUndefined()
+    expect(validateMasterLernmentorBank(bank)).toBe(bank)
+  })
+
+  it('ein normales Topic (topicKind fehlt) mit questions: [] bleibt INVALID', () => {
+    const bank = validBank()
+    bank.chapters[0].topics[0].questions = []
+    expect(() => validateMasterLernmentorBank(bank)).toThrow(/"questions" muss ein nicht-leeres Array sein/)
+  })
+
+  it('topicKind === "crossReference" mit questions: [] ist VALID', () => {
+    const bank = validBank({
+      chapters: [
+        { chapterId: 'ch01', chapterNumber: '1', chapterTitle: 'Marketing-Grundlagen', topics: [validTopic({ topicKind: 'crossReference', questions: [] })] },
+      ],
+    })
+    expect(validateMasterLernmentorBank(bank)).toBe(bank)
+  })
+
+  it('topicKind === "crossReference" mit vorhandenen Fragen bleibt konsistent validierbar (keine Sonderausnahme von den Fragenregeln)', () => {
+    const bank = validBank({
+      chapters: [
+        { chapterId: 'ch01', chapterNumber: '1', chapterTitle: 'Marketing-Grundlagen', topics: [validTopic({ topicKind: 'crossReference', questions: [validQuestion()] })] },
+      ],
+    })
+    expect(validateMasterLernmentorBank(bank)).toBe(bank)
+  })
+
+  it('lehnt einen unbekannten topicKind-Wert ab', () => {
+    const bank = validBank()
+    bank.chapters[0].topics[0].topicKind = 'foo'
+    expect(() => validateMasterLernmentorBank(bank)).toThrow(/topicKind/)
+  })
+
+  it('lehnt einen falschen Typ für topicKind ab (Zahl statt String)', () => {
+    const bank = validBank()
+    bank.chapters[0].topics[0].topicKind = 42
+    expect(() => validateMasterLernmentorBank(bank)).toThrow(/topicKind/)
+  })
+})
+
 // Codex Technical Red Team, Finding m-01 (MINOR): gespeicherte IDs/Positionen
 // müssen beim Anwenden eines Resumes gegen die tatsächlich geladene Bank
 // validiert/normalisiert werden - nie blind übernommen.
@@ -236,5 +350,19 @@ describe('normalizeResumeCheckpoint (Codex Finding m-01, Test A-H)', () => {
   it('gibt bei fehlender Bank oder fehlendem Checkpoint sicher null zurück, statt zu crashen', () => {
     expect(normalizeResumeCheckpoint(null, checkpoint())).toBeNull()
     expect(normalizeResumeCheckpoint(multiTopicBank(), null)).toBeNull()
+  })
+
+  // Cross-Reference-Metadata-Repair: ein Checkpoint, der auf ein Topic mit
+  // topicKind === "crossReference" (questions: []) zeigt, darf nie auf eine
+  // nicht existente Frage/einen ungültigen Index normalisiert werden - die
+  // bereits bestehende generische Index-Prüfung (questionCount === 0) greift
+  // hier automatisch, ganz ohne Cross-Reference-Sonderfall im Normalizer.
+  it('normalisiert einen Checkpoint auf einem Cross-Reference-Topic (questions: []) sicher, ohne Phantomfrage', () => {
+    const bank = multiTopicBank()
+    bank.chapters[0].topics.push(validTopic({ topicId: 'ch01-t03', chapterId: 'ch01', topicKind: 'crossReference', questions: [] }))
+    const result = normalizeResumeCheckpoint(bank, checkpoint({ currentTopicId: 'ch01-t03', currentQuestionIndex: 0, currentQuestionId: null }))
+    expect(result.currentTopicId).toBe('ch01-t03')
+    expect(result.currentQuestionIndex).toBe(0)
+    expect(result.currentQuestionId).toBeNull()
   })
 })

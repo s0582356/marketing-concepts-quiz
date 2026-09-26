@@ -723,6 +723,21 @@ a:focus-visible {
   border: 1px solid var(--color-border-teal-light);
   background: var(--color-surface-teal-light);
   color: var(--color-accent-teal);
+  /* .master-lernmentor ist eine Column-Flexbox - als Flex-Item hätte dieses
+     Label sonst min-width:auto (= die volle Breite des unteilbaren
+     Dateinamens als Mindestbreite) und würde bei langen echten Dateinamen
+     (z.B. MARKETING_172_PRUEFUNGSFRAGEN_KURZLERNANTWORTEN_FINAL.json) auf
+     schmalen Viewports horizontal überlaufen. */
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  /* display:inline-flex (siehe oben) zentriert hier nur einfachen Textinhalt
+     (kein Icon), macht den Text selbst aber zu einem anonymen Flex-Item mit
+     derselben min-width:auto-Problematik - overflow-wrap griffe dadurch nie.
+     inline-block + text-align erreicht dieselbe Zentrierung ohne dieses
+     verschachtelte Flex-Verhalten. */
+  display: inline-block;
+  text-align: center;
 }
 
 .review-mode-label {
@@ -2058,6 +2073,17 @@ a:focus-visible {
   border-radius: 8px;
   background: var(--color-surface-answer);
   border: 1px solid var(--color-border-answer);
+}
+
+.short-learn-answer-box {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--color-surface-answer);
+  border: 2px solid var(--color-border-answer);
+}
+
+.model-answer-toggle {
+  align-self: flex-start;
 }
 
 .self-rating-fieldset {
