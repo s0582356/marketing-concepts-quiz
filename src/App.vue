@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import QuizCard from './components/QuizCard.vue'
 import ScoreBox from './components/ScoreBox.vue'
 import PrivateQuestionImporter from './components/PrivateQuestionImporter.vue'
@@ -27,8 +27,10 @@ import {
   combinedTrainingFingerprint,
   mergeMcQuestions,
   mergeTrainingUnits,
+  pickActiveMasterLernmentorBank,
 } from './utils/libraryImport.js'
 import { countTopics } from './utils/masterLernmentorValidator.js'
+import { shuffledIndices } from './utils/shuffle.js'
 
 const THEME_STORAGE_KEY = 'marketingQuizTheme'
 
@@ -92,14 +94,21 @@ const mcLibraryBanks = ref({})
 const trainingUnitLibraryBanks = ref({})
 
 // Master-Lernmentor: eigene, von der MC-/Trainingseinheiten-Registry
-// unabhängige Bank - ein einzelnes privates JSON-Objekt (kein Multi-Bank-
-// Merge), lebt ausschließlich im Arbeitsspeicher dieser Session (nie in
-// localStorage/IndexedDB, siehe Aufgabenstellung Abschnitt 3). { data,
-// fingerprint, fileName } | null.
-const masterLernmentorBank = ref(null)
-const masterLernmentorAppRef = ref(null)
-function handleMasterLernmentorBankLoaded(payload) {
-  masterLernmentorBank.value = payload
+// unabhängige Registry, gefüllt vom selben zentralen Loader. Anders als dort
+// gibt es keinen Multi-Bank-Merge: es ist immer genau EINE Bank aktiv
+// (activeMasterFingerprint), Fortschritt/Resume hängen an ihrem eigenen
+// Datei-Fingerprint - eine alte und eine neue Lernmentor-Bank werden nie
+// vermischt. Lebt ausschließlich im Arbeitsspeicher dieser Session (nie in
+// localStorage/IndexedDB). Einträge: { data, fingerprint, fileName,
+// questionCount, shortLearnAnswerCount, hasShortLearnAnswers }.
+const masterLernmentorBanks = ref({})
+const activeMasterFingerprint = ref(null)
+const masterLernmentorBank = computed(() => masterLernmentorBanks.value[activeMasterFingerprint.value] ?? null)
+const masterLernmentorBankOptions = computed(() => Object.values(masterLernmentorBanks.value)
+  .map((bank) => ({ fingerprint: bank.fingerprint, fileName: bank.fileName, hasShortLearnAnswers: bank.hasShortLearnAnswers }))
+  .sort((left, right) => left.fileName.localeCompare(right.fileName)))
+function selectMasterLernmentorBank(fingerprint) {
+  if (masterLernmentorBanks.value[fingerprint]) activeMasterFingerprint.value = fingerprint
 }
 // Nur ein grober, technischer Lernfortschritts-Prozentwert für die
 // Dashboard-Kachel (keine Note, kein Score) - basiert auf abgeschlossenen
@@ -136,12 +145,14 @@ const libraryTrainingUnits = computed(() => mergeTrainingUnits(trainingUnitLibra
 const libraryFileNames = computed(() => [
   ...Object.values(mcLibraryBanks.value).map((bank) => bank.fileName),
   ...Object.values(trainingUnitLibraryBanks.value).map((bank) => bank.fileName),
+  ...Object.values(masterLernmentorBanks.value).map((bank) => bank.fileName),
 ].sort())
 // Registry-Keys sind bereits Content-Fingerprints - direkt als "bereits
 // bekannt" an den Multi-Loader reichen (siehe LibraryLoader knownFingerprints).
 const knownLibraryFingerprints = computed(() => new Set([
   ...Object.keys(mcLibraryBanks.value),
   ...Object.keys(trainingUnitLibraryBanks.value),
+  ...Object.keys(masterLernmentorBanks.value),
 ]))
 
 // Kombi-Fingerprint der Trainingseinheiten-Banken - eigene, von der MC-Bank-
@@ -246,13 +257,9 @@ function continueLearning() {
   }
 }
 
-function handleLoadLibrariesForResume() {
-  const location = lastLearningLocation.value
-  if (location?.area === 'masterLearn') {
-    currentView.value = 'masterLearn'
-    nextTick(() => masterLernmentorAppRef.value?.openFilePicker())
-    return
-  }
+// Ein einziger Uploadweg für alle Banktypen (MC, Methodentrainer, Master-
+// Lernmentor): immer der zentrale Loader.
+function openLibraryPicker() {
   libraryLoaderRef.value?.openFilePicker()
 }
 
@@ -315,17 +322,6 @@ const learningRecommendation = computed(() => weakCategories.value.length > 0
 
 function getQuestionKey(question) {
   return [question.id, question.category, question.difficulty, question.question].filter(Boolean).join('::')
-}
-
-function shuffledIndices(length) {
-  const order = Array.from({ length }, (_, index) => index)
-  for (let index = order.length - 1; index > 0; index--) {
-    const randomIndex = Math.floor(Math.random() * (index + 1))
-    const value = order[index]
-    order[index] = order[randomIndex]
-    order[randomIndex] = value
-  }
-  return order
 }
 
 function buildRun(indices, orders = null) {
@@ -531,10 +527,18 @@ async function loadPrivateQuestions({ questions: importedQuestions, fileName, fi
 // Einzelimporter): fügt Banken in die Registry ein und aktiviert danach immer
 // den vollständig aus der Registry abgeleiteten Pool - direkt in Quiz, Mixed
 // Exam und Resolver. Trainingseinheiten-Banken werden separat gehalten und
-// als Prop an den Methodentrainer weitergegeben.
+// als Prop an den Methodentrainer weitergegeben. Master-Lernmentor-Banken
+// landen in ihrer eigenen Registry; die neu geladene Bank wird aktiv (bei
+// mehreren in einer Auswahl siehe pickActiveMasterLernmentorBank).
 async function handleLibraryLoaded(result) {
   if (result.mcBanks.length) mcLibraryBanks.value = addLibraryBanks(mcLibraryBanks.value, result.mcBanks)
   if (result.trainingUnitBanks.length) trainingUnitLibraryBanks.value = addLibraryBanks(trainingUnitLibraryBanks.value, result.trainingUnitBanks)
+  if (result.masterLernmentorBanks?.length) {
+    masterLernmentorBanks.value = addLibraryBanks(masterLernmentorBanks.value, result.masterLernmentorBanks)
+    const location = lastLearningLocation.value
+    const resumeFingerprint = location?.area === 'masterLearn' ? location.setFingerprint : null
+    activeMasterFingerprint.value = pickActiveMasterLernmentorBank(result.masterLernmentorBanks, resumeFingerprint).fingerprint
+  }
 
   if (result.mcBanks.length) await activateMcLibraryPool()
 }
@@ -612,6 +616,9 @@ async function handleLibraryLoaded(result) {
       :mc-question-count="libraryMcQuestions.length"
       :training-unit-bank-count="Object.keys(trainingUnitLibraryBanks).length"
       :training-unit-count="libraryTrainingUnits.length"
+      :master-bank-count="Object.keys(masterLernmentorBanks).length"
+      :active-master-question-count="masterLernmentorBank ? masterLernmentorBank.questionCount : 0"
+      :active-master-has-short-learn-answers="Boolean(masterLernmentorBank?.hasShortLearnAnswers)"
       :loaded-file-names="libraryFileNames"
       :known-fingerprints="knownLibraryFingerprints"
       @library-loaded="handleLibraryLoaded"
@@ -631,7 +638,7 @@ async function handleLibraryLoaded(result) {
       :has-master-lernmentor-bank="Boolean(masterLernmentorBank)"
       :master-learn-progress-percent="masterLearnProgressPercent"
       @continue="continueLearning"
-      @load-libraries="handleLoadLibrariesForResume"
+      @load-libraries="openLibraryPicker"
       @discard-continue="handleDiscardContinue"
       @open-quiz="currentView = 'quiz'"
       @open-master-learn="currentView = 'masterLearn'"
@@ -768,10 +775,11 @@ async function handleLibraryLoaded(result) {
 
     <MasterLernmentorApp
       v-else-if="currentView === 'masterLearn'"
-      ref="masterLernmentorAppRef"
       :bank="masterLernmentorBank"
+      :available-banks="masterLernmentorBankOptions"
       :resume-request="masterLearnResumeRequest"
-      @bank-loaded="handleMasterLernmentorBankLoaded"
+      @request-load-libraries="openLibraryPicker"
+      @select-bank="selectMasterLernmentorBank"
       @learning-location="handleLearningLocation"
       @learning-location-cleared="handleLearningLocationCleared"
     />

@@ -80,15 +80,19 @@ describe('3-Modi-Gerüst', () => {
 })
 
 describe('Master-Lernmentor-Navigation (Test 2)', () => {
-  it('öffnet den Master-Lernmentor über den Bereichs-Umschalter, mit eigenem lokalen Importer', async () => {
+  it('öffnet den Master-Lernmentor über den Bereichs-Umschalter - ohne eigenen Uploadweg, mit Verweis auf den zentralen Loader', async () => {
     const wrapper = mount(App)
     expect(wrapper.find('.master-lernmentor').exists()).toBe(false)
 
     await findButtonByText(wrapper, 'Master-Lernmentor').trigger('click')
 
     expect(wrapper.find('.master-lernmentor').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Master-Lernmentor-Bank lokal laden')
-    expect(findButtonByText(wrapper, 'JSON auswählen')).toBeTruthy()
+    expect(wrapper.text()).toContain('Noch keine Master-Lernmentor-Bank geladen')
+    // Kein separater Master-Importer mehr: kein eigenes Datei-Input, kein "JSON auswählen".
+    expect(wrapper.text()).not.toContain('Master-Lernmentor-Bank lokal laden')
+    expect(wrapper.find('.master-lernmentor input[type="file"]').exists()).toBe(false)
+    expect(findButtonByText(wrapper, 'JSON auswählen')).toBeFalsy()
+    expect(wrapper.findAll('input[type="file"]')).toHaveLength(1)
   })
 
   it('zeigt die Master-Lernmentor-Dashboard-Kachel zwischen Quiz und Methodentrainer und öffnet darüber denselben Bereich', async () => {

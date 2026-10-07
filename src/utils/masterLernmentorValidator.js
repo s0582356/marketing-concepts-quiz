@@ -167,6 +167,16 @@ export function countQuestions(bank) {
   return bank.chapters.reduce((sum, chapter) => sum + chapter.topics.reduce((s, topic) => s + topic.questions.length, 0), 0)
 }
 
+// Anzahl der Fragen mit optionaler Kurz-Lernantwort - dient dem zentralen
+// Loader nur zur Anzeige der erkannten Bank-Variante (mit/ohne
+// shortLearnAnswer), nie zur Validierung.
+export function countShortLearnAnswers(bank) {
+  return bank.chapters.reduce((sum, chapter) => sum + chapter.topics.reduce(
+    (s, topic) => s + topic.questions.filter((question) => typeof question.shortLearnAnswer === 'string').length,
+    0,
+  ), 0)
+}
+
 function flatTopicsOf(bank) {
   return bank.chapters.flatMap((chapter) => chapter.topics.map((topic) => ({ ...topic, chapterId: chapter.chapterId })))
 }

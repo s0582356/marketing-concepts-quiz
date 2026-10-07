@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import AnswerOption from '../components/AnswerOption.vue'
 import { resolveMcQuestion } from './trainingUnits.js'
+import { shuffledIndices } from '../utils/shuffle.js'
 import { deleteMixedExamProgress, getMixedExamProgress, saveMixedExamProgress } from '../utils/learningProgress.js'
 
 const props = defineProps({
@@ -56,17 +57,6 @@ watch(() => props.setFingerprint, refreshResumableCheckpoint, { immediate: true 
 const wrongAnswers = computed(() => answers.value
   .filter((a) => !a.isCorrect)
   .map((a) => ({ ...a, backReferenceMethod: findBackReferenceMethod(a) })))
-
-function shuffledIndices(length) {
-  const order = Array.from({ length }, (_, index) => index)
-  for (let index = order.length - 1; index > 0; index--) {
-    const randomIndex = Math.floor(Math.random() * (index + 1))
-    const value = order[index]
-    order[index] = order[randomIndex]
-    order[randomIndex] = value
-  }
-  return order
-}
 
 // Baut die angezeigten Prüfungsfragen deterministisch aus poolIndices +
 // optionOrders auf - dieselbe Grundlage wird sowohl für einen frischen Start

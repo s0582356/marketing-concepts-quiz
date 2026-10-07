@@ -6,22 +6,26 @@
 // Abschnitt 10). Freitext bleibt ausschließlich lokaler Komponentenstate -
 // nie Teil von persistProgress().
 import { computed, ref, watch } from 'vue'
-import MasterLernmentorImporter from './MasterLernmentorImporter.vue'
 import MasterContentRenderer from './MasterContentRenderer.vue'
 import { checkAnswer } from '../utils/masterLernmentorMatcher.js'
 import { normalizeResumeCheckpoint } from '../utils/masterLernmentorValidator.js'
+import { masterQuestionPosition } from '../utils/masterLernmentorProgress.js'
 import { getMasterLearnProgress, saveMasterLearnProgress } from '../utils/learningProgress.js'
 
 const props = defineProps({
   // { data, fingerprint, fileName } | null - lebt auf App-Ebene (übersteht
   // Tab-Wechsel), wird hier nie kopiert/dupliziert gehalten.
   bank: { type: Object, default: null },
+  // Alle in dieser Sitzung geladenen Master-Lernmentor-Banken
+  // ({ fingerprint, fileName, hasShortLearnAnswers }) - nur für die Umschaltung
+  // der aktiven Bank, wenn mehr als eine geladen ist.
+  availableBanks: { type: Array, default: () => [] },
   // { nonce } - vom Dashboard über "Weiterlernen" ausgelöste einmalige
   // Sprung-Anweisung (analog zu MethodTrainerApp resumeRequest).
   resumeRequest: { type: Object, default: null },
 })
 
-const emit = defineEmits(['bank-loaded', 'learning-location', 'learning-location-cleared'])
+const emit = defineEmits(['request-load-libraries', 'select-bank', 'learning-location', 'learning-location-cleared'])
 
 const SELF_RATING_OPTIONS = [
   { code: 'green', icon: '🟢', label: 'Sicher' },
@@ -102,9 +106,11 @@ const chapterOverview = computed(() => {
   })
 })
 
-const currentTopicIndexInChapter = computed(() => {
-  if (!currentTopic.value) return 0
-  return topicsOfChapter(currentTopic.value.chapterId).findIndex((topic) => topic.topicId === currentTopic.value.topicId)
+// Position der aktuellen Frage im Thema UND im Kapitel (siehe
+// masterLernmentorProgress.js) - null, solange keine echte Frage offen ist.
+const questionPosition = computed(() => {
+  if (!props.bank || !currentTopic.value) return null
+  return masterQuestionPosition(props.bank.data, currentTopic.value.topicId, currentQuestionIndex.value)
 })
 
 const currentSelfRating = computed(() => (currentQuestion.value ? selfRatings.value[currentQuestion.value.questionId] ?? null : null))
@@ -323,12 +329,6 @@ function backToChapters() {
   screen.value = 'chapters'
 }
 
-function onBankLoaded(payload) {
-  emit('bank-loaded', payload)
-}
-
-const importerRef = ref(null)
-defineExpose({ openFilePicker: () => importerRef.value?.openFilePicker() })
 </script>
 
 <template>
@@ -338,10 +338,32 @@ defineExpose({ openFilePicker: () => importerRef.value?.openFilePicker() })
       <p>Der komplette Master, in eigenen Worten – Kapitel für Kapitel.</p>
     </header>
 
-    <MasterLernmentorImporter v-if="!bank" ref="importerRef" @bank-loaded="onBankLoaded" />
+    <!-- Kein eigener Uploadweg mehr: die Master-Lernmentor-Bank kommt über
+         den zentralen Loader "Lernbibliotheken laden" (App-Ebene). -->
+    <section v-if="!bank" class="import-card master-empty-state" aria-label="Master-Lernmentor-Bank fehlt">
+      <div>
+        <h2>Noch keine Master-Lernmentor-Bank geladen</h2>
+        <p>
+          Lade deine Master-Lernmentor-Datei über „Lernbibliotheken laden“ – zusammen mit
+          deinen anderen Lernbibliotheken. Der Typ wird automatisch erkannt.
+        </p>
+      </div>
+      <button class="import-button" type="button" @click="emit('request-load-libraries')">
+        Lernbibliotheken laden
+      </button>
+    </section>
 
     <template v-else>
       <p class="question-bank-label">Master-Lernmentor-Bank: {{ bank.fileName }}</p>
+
+      <div v-if="availableBanks.length > 1 && screen === 'chapters'" class="master-bank-switcher">
+        <label for="master-bank-select">Aktive Master-Lernmentor-Bank</label>
+        <select id="master-bank-select" :value="bank.fingerprint" @change="emit('select-bank', $event.target.value)">
+          <option v-for="option in availableBanks" :key="option.fingerprint" :value="option.fingerprint">
+            {{ option.fileName }} ({{ option.hasShortLearnAnswers ? 'mit' : 'ohne' }} Kurz-Lernantworten)
+          </option>
+        </select>
+      </div>
 
       <!-- Kapitelübersicht -->
       <section v-if="screen === 'chapters'" class="chapter-overview" aria-label="Kapitelübersicht">
@@ -392,8 +414,11 @@ defineExpose({ openFilePicker: () => importerRef.value?.openFilePicker() })
         <aside class="score-card" aria-label="Fortschritt">
           <h2>{{ currentTopic.chapterTitle }}</h2>
           <p>{{ currentTopic.topicNumber }} {{ currentTopic.topicTitle }}</p>
-          <p>Frage {{ currentQuestionIndex + 1 }} von {{ currentTopic.questions.length }}</p>
-          <p>Topic {{ currentTopicIndexInChapter + 1 }} von {{ topicsOfChapter(currentTopic.chapterId).length }} im Kapitel</p>
+          <ul v-if="questionPosition" class="master-progress-lines">
+            <li>Frage {{ questionPosition.topicQuestionNumber }} von {{ questionPosition.topicQuestionTotal }} in diesem Thema</li>
+            <li>Frage {{ questionPosition.chapterQuestionNumber }} von {{ questionPosition.chapterQuestionTotal }} im Kapitel</li>
+            <li>Thema {{ questionPosition.chapterTopicNumber }} von {{ questionPosition.chapterTopicTotal }} im Kapitel</li>
+          </ul>
           <p>Gesamt-Master-Fortschritt: {{ overallProgressPercent }} %</p>
           <button class="secondary-button" type="button" @click="backToChapters">Zur Kapitelübersicht</button>
         </aside>

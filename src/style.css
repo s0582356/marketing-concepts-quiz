@@ -1830,6 +1830,48 @@ a:focus-visible {
   color: var(--brand-primary);
 }
 
+/* Kompakte, mehrzeilige Positionsanzeige in der Fragenansicht: eine Angabe
+   je Zeile statt einer überladenen Statuszeile - bricht auch auf 375px
+   sauber um. */
+.master-progress-lines {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.master-progress-lines li:first-child {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.master-bank-switcher {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.master-bank-switcher label {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.master-bank-switcher select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-teal-light);
+  border-radius: 8px;
+  background: var(--color-surface-teal-light);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
 .chapter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

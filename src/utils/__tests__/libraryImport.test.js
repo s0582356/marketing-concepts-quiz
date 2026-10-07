@@ -5,8 +5,10 @@ import {
   combinedMcFingerprint,
   mergeMcQuestions,
   mergeTrainingUnits,
+  pickActiveMasterLernmentorBank,
   readLibraryFiles,
 } from '../libraryImport.js'
+import { syntheticMasterBank } from '../../__tests__/helpers/syntheticMasterBank.js'
 
 function mcQuestion(overrides = {}) {
   return {
@@ -253,5 +255,129 @@ describe('Merge-Reihenfolge ist dateinamenunabhängig (Codex Delta Review M-1)',
     const mergedOriginal = mergeTrainingUnits(original).map((u) => u.id)
     const mergedRenamed = mergeTrainingUnits(renamed).map((u) => u.id)
     expect(mergedRenamed).toEqual(mergedOriginal)
+  })
+})
+
+describe('Unified Loader V2: Master-Lernmentor-Erkennung (strukturell)', () => {
+  it('erkennt eine Master-Lernmentor-Bank ohne shortLearnAnswer (Test 3)', () => {
+    const result = classifyLibraryFile(syntheticMasterBank({ chapters: [[2, 1], [1]] }))
+    expect(result.type).toBe('masterLernmentor')
+    expect(result.questionCount).toBe(4)
+    expect(result.hasShortLearnAnswers).toBe(false)
+    expect(result.shortLearnAnswerCount).toBe(0)
+  })
+
+  it('erkennt eine Master-Lernmentor-Bank mit shortLearnAnswer (Test 4)', () => {
+    const result = classifyLibraryFile(syntheticMasterBank({ chapters: [[2, 1], [1]], shortLearnAnswers: true }))
+    expect(result.type).toBe('masterLernmentor')
+    expect(result.hasShortLearnAnswers).toBe(true)
+    expect(result.shortLearnAnswerCount).toBe(4)
+  })
+
+  it('gibt die Bankdaten unverändert weiter (kein Remapping des Contents)', () => {
+    const bank = syntheticMasterBank({ shortLearnAnswers: true })
+    const snapshot = JSON.stringify(bank)
+    const result = classifyLibraryFile(bank)
+    expect(result.data).toBe(bank)
+    expect(JSON.stringify(bank)).toBe(snapshot)
+  })
+
+  it('erkennt den Typ am Inhalt, nicht am Dateinamen (Test 7)', async () => {
+    const result = await readLibraryFiles([
+      jsonFile('marketing_basics_mc.json', syntheticMasterBank()),
+      jsonFile('MASTER_LERNMENTOR.json', [mcQuestion()]),
+      jsonFile('irgendwas.json', [trainingUnit()]),
+    ])
+    expect(result.masterLernmentorBanks.map((bank) => bank.fileName)).toEqual(['marketing_basics_mc.json'])
+    expect(result.mcBanks.map((bank) => bank.fileName)).toEqual(['MASTER_LERNMENTOR.json'])
+    expect(result.trainingUnitBanks.map((bank) => bank.fileName)).toEqual(['irgendwas.json'])
+    expect(result.errors).toEqual([])
+  })
+
+  it('lädt alle vier Varianten gleichzeitig und trennt sie sauber (Test 5)', async () => {
+    const result = await readLibraryFiles([
+      jsonFile('mc1.json', [mcQuestion({ question: 'F1' })]),
+      jsonFile('mc2.json', [mcQuestion({ question: 'F2' })]),
+      jsonFile('trainer.json', [trainingUnit()]),
+      jsonFile('master-alt.json', syntheticMasterBank({ marker: 'ALT' })),
+      jsonFile('master-neu.json', syntheticMasterBank({ marker: 'NEU', shortLearnAnswers: true })),
+    ])
+    expect(result.mcBanks).toHaveLength(2)
+    expect(result.trainingUnitBanks).toHaveLength(1)
+    expect(result.masterLernmentorBanks).toHaveLength(2)
+    expect(result.masterLernmentorBanks.map((bank) => bank.hasShortLearnAnswers)).toEqual([false, true])
+    expect(result.errors).toEqual([])
+    // Getrennte Fingerprints -> alte und neue Lernmentor-Bank werden nie vermischt.
+    const fingerprints = result.masterLernmentorBanks.map((bank) => bank.fingerprint)
+    expect(new Set(fingerprints).size).toBe(2)
+    fingerprints.forEach((fingerprint) => expect(fingerprint).toMatch(/^[a-f0-9]{64}$/))
+  })
+
+  it('meldet eine strukturell defekte Master-Bank verständlich und verliert die gültigen Dateien nicht (Test 6)', async () => {
+    const broken = syntheticMasterBank()
+    delete broken.chapters[0].topics[0].learningPhase
+    const result = await readLibraryFiles([
+      jsonFile('mc.json', [mcQuestion()]),
+      jsonFile('master-defekt.json', broken),
+      jsonFile('kaputt.json', { foo: 'bar' }),
+      new File(['{nicht json'], 'syntax.json', { type: 'application/json' }),
+      jsonFile('master-ok.json', syntheticMasterBank({ marker: 'OK' })),
+    ])
+    expect(result.mcBanks).toHaveLength(1)
+    expect(result.masterLernmentorBanks.map((bank) => bank.fileName)).toEqual(['master-ok.json'])
+    expect(result.errors.map((error) => error.fileName)).toEqual(['master-defekt.json', 'kaputt.json', 'syntax.json'])
+    expect(result.errors[0].reason).toContain('learningPhase')
+    expect(result.errors[1].reason).toContain('Unbekanntes JSON-Format')
+    expect(result.errors[2].reason).toBe('Kein gültiges JSON.')
+  })
+
+  it('lehnt ein Topic ohne Fragen ab, wenn es nicht als crossReference gekennzeichnet ist', () => {
+    const bank = syntheticMasterBank({ chapters: [[2, 0]] })
+    delete bank.chapters[0].topics[1].topicKind
+    expect(() => classifyLibraryFile(bank)).toThrow('questions')
+  })
+
+  it('lehnt ein mehrdeutiges Array ab, statt es still einem Typ zuzuschlagen (Test 7)', () => {
+    const ambiguous = [{ ...mcQuestion(), ...trainingUnit() }]
+    expect(() => classifyLibraryFile(ambiguous)).toThrow('Mehrdeutiges JSON-Format')
+  })
+
+  it('klassifiziert ein gemischtes Array (MC + Trainingseinheit) nicht falsch', () => {
+    expect(() => classifyLibraryFile([mcQuestion(), trainingUnit()])).toThrow('Unbekanntes JSON-Format')
+  })
+
+  it('hält ein Objekt ohne "chapters" und ein Array mit "chapters"-Einträgen nicht für eine Master-Bank', () => {
+    expect(() => classifyLibraryFile({ questions: [mcQuestion()] })).toThrow('Unbekanntes JSON-Format')
+    expect(() => classifyLibraryFile([{ chapters: [] }])).toThrow('Unbekanntes JSON-Format')
+    expect(() => classifyLibraryFile({ chapters: [] })).toThrow('chapters')
+  })
+
+  it('erkennt eine bereits geladene Master-Bank beim erneuten Import als Duplikat', async () => {
+    const file = () => jsonFile('master.json', syntheticMasterBank())
+    const first = await readLibraryFiles([file()])
+    const second = await readLibraryFiles([file()], new Set([first.masterLernmentorBanks[0].fingerprint]))
+    expect(second.masterLernmentorBanks).toHaveLength(0)
+    expect(second.duplicates).toEqual(['master.json'])
+  })
+})
+
+describe('pickActiveMasterLernmentorBank', () => {
+  const classic = { fingerprint: 'a'.repeat(64), shortLearnAnswerCount: 0 }
+  const withShort = { fingerprint: 'b'.repeat(64), shortLearnAnswerCount: 172 }
+
+  it('bevorzugt die Bank des gespeicherten letzten Lernorts (Resume)', () => {
+    expect(pickActiveMasterLernmentorBank([classic, withShort], classic.fingerprint)).toBe(classic)
+  })
+
+  it('wählt sonst die Bank mit Kurz-Lernantworten, unabhängig von der Auswahlreihenfolge', () => {
+    expect(pickActiveMasterLernmentorBank([classic, withShort])).toBe(withShort)
+    expect(pickActiveMasterLernmentorBank([withShort, classic])).toBe(withShort)
+    expect(pickActiveMasterLernmentorBank([classic, withShort], 'f'.repeat(64))).toBe(withShort)
+  })
+
+  it('wählt bei Gleichstand die zuletzt ausgewählte und liefert null ohne Banken', () => {
+    const other = { fingerprint: 'c'.repeat(64), shortLearnAnswerCount: 0 }
+    expect(pickActiveMasterLernmentorBank([classic, other])).toBe(other)
+    expect(pickActiveMasterLernmentorBank([])).toBeNull()
   })
 })

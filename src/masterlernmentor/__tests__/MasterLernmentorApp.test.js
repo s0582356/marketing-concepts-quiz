@@ -539,7 +539,7 @@ describe('Topic-/Kapitelwechsel und Fortschritt (Test 21, 22)', () => {
     const wrapper = mount(MasterLernmentorApp, { props: { bank: bankProp() } })
     await openFirstChapter(wrapper)
     await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
-    expect(wrapper.text()).toContain('Topic 1 von 2 im Kapitel')
+    expect(wrapper.text()).toContain('Thema 1 von 2 im Kapitel')
 
     await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
     await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
@@ -778,5 +778,136 @@ describe('Cross-Reference-Topic (topicKind === "crossReference")', () => {
     // q02 hat kein shortLearnAnswer - bisheriger Flow bleibt intakt.
     expect(wrapper.find('.short-learn-answer-box').exists()).toBe(false)
     expect(wrapper.find('.model-answer-box').exists()).toBe(true)
+  })
+})
+
+describe('Transparenter Fortschritt in der Fragenansicht (Thema / Kapitel / Gesamt)', () => {
+  function progressLines(wrapper) {
+    return wrapper.findAll('.master-progress-lines li').map((line) => line.text())
+  }
+
+  it('zeigt Themen- und Kapitelposition getrennt und eindeutig beschriftet (Test 11, 12, 13, 14)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankProp() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+
+    expect(progressLines(wrapper)).toEqual([
+      'Frage 1 von 2 in diesem Thema',
+      'Frage 1 von 3 im Kapitel',
+      'Thema 1 von 2 im Kapitel',
+    ])
+    expect(wrapper.text()).toContain('Gesamt-Master-Fortschritt: 0 %')
+
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    expect(progressLines(wrapper)).toEqual([
+      'Frage 2 von 2 in diesem Thema',
+      'Frage 2 von 3 im Kapitel',
+      'Thema 1 von 2 im Kapitel',
+    ])
+  })
+
+  it('zählt im zweiten Thema über die Fragen des ersten Themas hinweg weiter (Kapitel-Frageindex)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankProp() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+
+    expect(progressLines(wrapper)).toEqual([
+      'Frage 1 von 1 in diesem Thema',
+      'Frage 3 von 3 im Kapitel',
+      'Thema 2 von 2 im Kapitel',
+    ])
+  })
+
+  it('beginnt die Kapitelzählung an der Kapitelgrenze wieder bei 1 (Test 16)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankProp() } })
+    await wrapper.findAll('.chapter-card')[1].find('button').trigger('click')
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+
+    const lines = progressLines(wrapper)
+    expect(lines[0]).toMatch(/^Frage 1 von \d+ in diesem Thema$/)
+    expect(lines[1]).toMatch(/^Frage 1 von \d+ im Kapitel$/)
+    expect(lines[2]).toMatch(/^Thema 1 von \d+ im Kapitel$/)
+  })
+
+  it('zählt ein Cross-Reference-Topic als Thema, aber nie als Frage (Test 15)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankWithCrossReferenceTopic() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    // Kapitel hat jetzt 3 Themen (eines davon Verweis), aber weiterhin nur 3 echte Fragen.
+    expect(progressLines(wrapper)).toEqual([
+      'Frage 1 von 2 in diesem Thema',
+      'Frage 1 von 3 im Kapitel',
+      'Thema 1 von 3 im Kapitel',
+    ])
+
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+    // Verweis-Topic: keine Fragenansicht, also auch keine Fragen-Positionszeilen.
+    expect(wrapper.find('.master-progress-lines').exists()).toBe(false)
+    await findButtonByText(wrapper, 'Gelesen – weiter').trigger('click')
+    await findButtonByText(wrapper, 'Nächstes Unterthema').trigger('click')
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+
+    // Erste Frage NACH dem Verweis-Topic ist Kapitel-Frage 3, nicht 4.
+    expect(progressLines(wrapper)).toEqual([
+      'Frage 1 von 1 in diesem Thema',
+      'Frage 3 von 3 im Kapitel',
+      'Thema 3 von 3 im Kapitel',
+    ])
+  })
+
+  it('zeigt nach einem Resume (Reload) wieder den korrekten Themen- und Kapitelindex (Test 18)', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: bankProp() } })
+    await openFirstChapter(wrapper)
+    await findButtonByText(wrapper, 'Ich habe es gelesen – jetzt abfragen').trigger('click')
+    await findButtonByText(wrapper, 'Antwort prüfen').trigger('click')
+    await findButtonByText(wrapper, 'Nächste Frage').trigger('click')
+    await wrapper.unmount()
+
+    const resumed = mount(MasterLernmentorApp, { props: { bank: bankProp(), resumeRequest: { nonce: 1 } } })
+    await resumed.vm.$nextTick()
+    expect(progressLines(resumed)).toEqual([
+      'Frage 2 von 2 in diesem Thema',
+      'Frage 2 von 3 im Kapitel',
+      'Thema 1 von 2 im Kapitel',
+    ])
+  })
+})
+
+describe('Kein eigener Uploadweg im Master-Lernmentor (Unified Loader)', () => {
+  it('zeigt ohne Bank nur einen Verweis auf den zentralen Loader und fordert ihn per Event an', async () => {
+    const wrapper = mount(MasterLernmentorApp, { props: { bank: null } })
+    expect(wrapper.find('input[type="file"]').exists()).toBe(false)
+    await findButtonByText(wrapper, 'Lernbibliotheken laden').trigger('click')
+    expect(wrapper.emitted('request-load-libraries')).toHaveLength(1)
+  })
+
+  it('bietet die Umschaltung der aktiven Bank nur an, wenn mehrere Banken geladen sind', async () => {
+    const single = mount(MasterLernmentorApp, { props: { bank: bankProp(), availableBanks: [{ fingerprint: FINGERPRINT_A, fileName: 'a.json', hasShortLearnAnswers: false }] } })
+    expect(single.find('.master-bank-switcher').exists()).toBe(false)
+
+    const multi = mount(MasterLernmentorApp, {
+      props: {
+        bank: bankProp(),
+        availableBanks: [
+          { fingerprint: FINGERPRINT_A, fileName: 'a.json', hasShortLearnAnswers: false },
+          { fingerprint: FINGERPRINT_B, fileName: 'b.json', hasShortLearnAnswers: true },
+        ],
+      },
+    })
+    const select = multi.find('.master-bank-switcher select')
+    expect(select.exists()).toBe(true)
+    await select.setValue(FINGERPRINT_B)
+    expect(multi.emitted('select-bank')[0]).toEqual([FINGERPRINT_B])
   })
 })
